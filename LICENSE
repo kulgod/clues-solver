@@ -1,3 +1,135 @@
+# Clues Solver
+
+A sophisticated solver for online puzzle games featuring character deduction on a 5x4 grid.
+
+## Game Description
+
+The target game features:
+- 5x4 grid of characters (20 total)
+- Each character has: name, occupation, and criminal/innocent label
+- Initially only 1 character's label is revealed
+- Players must deduce other characters' labels through logical reasoning
+- Incorrect guesses are penalized
+
+## Architecture
+
+### Core Components
+
+1. **GameState** (`src/game_state.py`)
+   - Represents the current puzzle state
+   - Tracks character information and labels
+   - Manages grid layout and constraints
+
+2. **Constraints** (`src/constraints.py`)
+   - Implements logical rules and deduction patterns
+   - Supports occupation-based, count-based, and adjacency constraints
+   - Provides implication engine for automated reasoning
+
+3. **Solver** (`src/solver.py`)
+   - Main puzzle-solving logic
+   - Uses constraint satisfaction and confidence scoring
+   - Suggests optimal moves with risk assessment
+
+4. **Game Interface** (`src/game_interface.py`)
+   - Abstracts connection to the online game
+   - Supports mock interface for testing
+   - Extensible for web scraping or API integration
+
+### Key Features
+
+- **Constraint Propagation**: Automatically applies logical rules to deduce information
+- **Confidence Scoring**: Evaluates move safety to minimize penalties
+- **Risk Assessment**: Prioritizes high-confidence moves
+- **Extensible Rules**: Easy to add game-specific constraints
+- **Testing Framework**: Comprehensive test suite with mock game
+
+## Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+## Usage
+
+### Testing with Mock Game
+
+```bash
+python -m src.main --mode mock --verbose
+```
+
+### Extending for Actual Game
+
+1. Implement `WebGameInterface` in `src/game_interface.py`
+2. Add game-specific constraints to `create_default_constraints()`
+3. Customize occupation rules and deduction patterns
+
+```bash
+python -m src.main --mode web --url "https://game-url.com"
+```
+
+## Customization
+
+### Adding New Constraints
+
+```python
+class CustomConstraint(Constraint):
+    def is_satisfied(self, game_state: GameState) -> bool:
+        # Implement constraint validation
+        return True
+    
+    def get_implications(self, game_state: GameState) -> List[Implication]:
+        # Return logical implications
+        return []
+```
+
+### Occupation Rules
+
+Modify the occupation rules in `create_default_constraints()`:
+
+```python
+occupation_rules = {
+    "Police": {"type": "bias", "bias": 0.8},      # 80% likely innocent
+    "Politician": {"type": "bias", "bias": -0.4},  # 40% likely criminal
+    # Add more occupations...
+}
+```
+
+## Development
+
+### Running Tests
+
+```bash
+pytest tests/ -v
+```
+
+### Code Formatting
+
+```bash
+black src/ tests/
+flake8 src/ tests/
+mypy src/
+```
+
+## Strategy
+
+The solver uses several strategies:
+
+1. **Constraint Satisfaction**: Ensures all moves comply with game rules
+2. **Probabilistic Reasoning**: Uses occupation and positional biases
+3. **Risk Minimization**: Prioritizes high-confidence moves
+4. **Iterative Deduction**: Applies rules repeatedly until convergence
+
+## Future Enhancements
+
+- Machine learning for pattern recognition
+- Advanced game tree search
+- Real-time adaptation to game variations
+- GUI for manual oversight
+- Performance optimization for larger grids
+
+
+
+
 MIT License
 
 Copyright (c) 2025 Abhi Kulgod
