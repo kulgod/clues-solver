@@ -1,7 +1,8 @@
 from typing import List, Dict, Tuple, Optional, Set
 
-from src.python.game_state import GameState, Suspect, Label
-from src.python.constraints import Constraint
+from src.python.manual_solver.game_state import GameState, Suspect, Label
+from src.python.manual_solver.constraints import Constraint, Position
+from src.python.manual_solver.constraint_parser import ConstraintParser
 
 class CluesMove:
     """Represents a move in the Clues game."""
@@ -20,8 +21,30 @@ class CluesSolver:
     def parse_constraints(game_state: GameState) -> List[Constraint]:
         """Parse the constraints from the game state."""
         constraints = []
+        parser = ConstraintParser()
+        
+        # Build name to position mapping
+        name_to_position = {}
+        for cell_name, suspect in game_state.cell_map.items():
+            row, col = game_state._to_cell_coords(cell_name)
+            name_to_position[suspect.name] = Position(row, col)
+        
+        parser.set_name_mapping(name_to_position)
+        
+        # Parse constraints from all known suspects' hints
         for suspect in game_state.get_known_suspects():
-            constraints.append(Constraint(suspect))
+            if suspect.hint:
+                row, col = None, None
+                for cell_name, s in game_state.cell_map.items():
+                    if s.name == suspect.name:
+                        row, col = game_state._to_cell_coords(cell_name)
+                        break
+                
+                if row is not None and col is not None:
+                    source_position = Position(row, col)
+                    parsed_constraints = parser.parse_hint(suspect.hint, source_position)
+                    constraints.extend(parsed_constraints)
+        
         return constraints
     
     @staticmethod
@@ -59,11 +82,23 @@ class CluesSolver:
         # Check if this creates any contradictions
         try:
             # Apply constraints to see if any contradictions arise
-            for constraint in CluesSolver.parse_constraints(test_state):
-                if not constraint.check(test_state):
-                    return False
+            constraints = CluesSolver.parse_constraints(test_state)
+            for constraint in constraints:
+                deductions = constraint.check(test_state)
+                # If any constraint returns deductions, check if they're consistent
+                for pos, deduced_label, reason in deductions:
+                    # Find the suspect at this position
+                    for cell_name, s in test_state.cell_map.items():
+                        test_row, test_col = test_state._to_cell_coords(cell_name)
+                        if test_row == pos.row and test_col == pos.col:
+                            if s.is_visible and s.label != deduced_label:
+                                return False  # Contradiction found
+                            elif not s.is_visible:
+                                # Apply the deduction to the test state
+                                test_state.set_label(s, deduced_label)
+                            break
             return True
-        except:
+        except Exception:
             return False
     
     @staticmethod

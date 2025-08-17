@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple, Optional
 
-from src.python.game_state import GameState, Suspect, Label
+from src.python.manual_solver.game_state import GameState, Suspect, Label
 
 class GameInterface(ABC):
     """Abstract interface for connecting to the online game."""

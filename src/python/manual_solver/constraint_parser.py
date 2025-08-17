@@ -1,8 +1,8 @@
 import re
 from typing import List, Dict, Optional, Tuple
-from .constraints import (
+from src.python.manual_solver.constraints import (
     Constraint, CountConstraint, PositionalConstraint, NeighborConstraint, 
-    RelativeConstraint, ExistenceConstraint, Position, Label
+    RelativeConstraint, ExistenceConstraint, SpecificCharacterConstraint, Position, Label
 )
 
 class ConstraintParser:
@@ -214,20 +214,38 @@ class ConstraintParser:
         else:
             return constraints
         
-        # Find reference character (e.g., "Karen")
-        for name, pos in self.name_to_position.items():
-            if name.lower() in hint and name.lower() != "one":
-                ref_pos = pos
-                target_positions = self._get_positions_in_direction(ref_pos, direction)
-                
-                constraints.append(PositionalConstraint(
-                    direction=PositionalConstraint.Direction.BELOW if direction == "below" else PositionalConstraint.Direction.ABOVE,
-                    source_position=source_position,
-                    target_positions=target_positions,
-                    target_label=label,
-                    count=count
-                ))
+        # Find the specific character (e.g., "Tyler") - it should be at the beginning of the hint
+        specific_char_pos = None
+        words = hint.split()
+        for i, word in enumerate(words):
+            for name, pos in self.name_to_position.items():
+                if word.lower() == name.lower():
+                    specific_char_pos = pos
+                    break
+            if specific_char_pos:
                 break
+        
+        # Find reference character (e.g., "Karen") - it should be after "below"
+        ref_pos = None
+        if "below" in hint:
+            below_index = hint.find("below")
+            after_below = hint[below_index:]
+            for name, pos in self.name_to_position.items():
+                if name.lower() in after_below and pos != specific_char_pos:
+                    ref_pos = pos
+                    break
+        
+        if specific_char_pos and ref_pos:
+            target_positions = self._get_positions_in_direction(ref_pos, direction)
+            
+            # Create a specific character constraint
+            constraints.append(SpecificCharacterConstraint(
+                specific_character=specific_char_pos,
+                target_positions=target_positions,
+                target_label=label,
+                count=count,
+                source_position=source_position
+            ))
         
         return constraints
     

@@ -3,10 +3,10 @@ from typing import List, Set, Dict, Tuple, Optional, Union
 from dataclasses import dataclass
 from enum import Enum
 
-from src.python.game_state import GameState, Suspect, Label
+from src.python.manual_solver.game_state import GameState, Suspect, Label
 
 
-@dataclass
+@dataclass(frozen=True)
 class Position:
     row: int
     col: int
@@ -94,11 +94,14 @@ class CountConstraint(Constraint):
         
         elif self.count_type == CountConstraint.CountType.TOTAL:
             # "There are 11 innocents in total"
-            all_positions = list(game_state.keys())
-            current_count = sum(1 for pos in all_positions 
-                              if game_state[pos].label == self.target_label)
-            unknowns = [pos for pos in all_positions 
-                       if game_state[pos].label == Label.UNKNOWN]
+            current_count = 0
+            unknowns = []
+            for cell_name, suspect in game_state.cell_map.items():
+                if suspect.is_visible and suspect.label == self.target_label:
+                    current_count += 1
+                elif not suspect.is_visible:
+                    row, col = game_state._to_cell_coords(cell_name)
+                    unknowns.append(Position(row, col))
             
             if current_count + len(unknowns) == self.count:
                 # All unknowns must be the target label
@@ -109,13 +112,27 @@ class CountConstraint(Constraint):
     
     def _count_in_area(self, game_state: GameState, area: List[Position], label: Label) -> int:
         """Count characters with specific label in an area."""
-        return sum(1 for pos in area 
-                  if pos in game_state and game_state[pos].label == label)
+        count = 0
+        for pos in area:
+            for cell_name, suspect in game_state.cell_map.items():
+                row, col = game_state._to_cell_coords(cell_name)
+                if row == pos.row and col == pos.col:
+                    if suspect.is_visible and suspect.label == label:
+                        count += 1
+                    break
+        return count
     
     def _get_unknowns_in_area(self, game_state: GameState, area: List[Position]) -> List[Position]:
         """Get unknown characters in an area."""
-        return [pos for pos in area 
-                if pos in game_state and game_state[pos].label == Label.UNKNOWN]
+        unknowns = []
+        for pos in area:
+            for cell_name, suspect in game_state.cell_map.items():
+                row, col = game_state._to_cell_coords(cell_name)
+                if row == pos.row and col == pos.col:
+                    if not suspect.is_visible:
+                        unknowns.append(pos)
+                    break
+        return unknowns
 
 # ============================================================================
 # POSITIONAL CONSTRAINTS
@@ -146,29 +163,56 @@ class PositionalConstraint(Constraint):
             # "There is one innocent cop above Susan"
             if self.occupation_filter:
                 # Filter by occupation
-                matching_positions = [pos for pos in self.target_positions
-                                    if pos in game_state and 
-                                    game_state[pos].occupation.lower() == self.occupation_filter.lower()]
+                matching_positions = []
+                for pos in self.target_positions:
+                    for cell_name, suspect in game_state.cell_map.items():
+                        row, col = game_state._to_cell_coords(cell_name)
+                        if row == pos.row and col == pos.col:
+                            if suspect.occupation.lower() == self.occupation_filter.lower():
+                                matching_positions.append(pos)
+                            break
                 
                 if len(matching_positions) == self.count:
                     # All matching positions must be the target label
                     for pos in matching_positions:
-                        if game_state[pos].label == Label.UNKNOWN:
-                            deductions.append((pos, self.target_label, f"Positional constraint: {self.direction.value}"))
+                        # Check if this position is unknown
+                        for cell_name, suspect in game_state.cell_map.items():
+                            row, col = game_state._to_cell_coords(cell_name)
+                            if row == pos.row and col == pos.col and not suspect.is_visible:
+                                deductions.append((pos, self.target_label, f"Positional constraint: {self.direction.value}"))
+                                break
         
         elif self.direction == PositionalConstraint.Direction.BELOW:
             # "Tyler is one of 2 criminals below Karen"
             if self.count:
                 # Count how many of target_label are already known
-                known_count = sum(1 for pos in self.target_positions
-                                if pos in game_state and game_state[pos].label == self.target_label)
-                unknowns = [pos for pos in self.target_positions
-                           if pos in game_state and game_state[pos].label == Label.UNKNOWN]
+                known_count = 0
+                unknowns = []
+                for pos in self.target_positions:
+                    for cell_name, suspect in game_state.cell_map.items():
+                        row, col = game_state._to_cell_coords(cell_name)
+                        if row == pos.row and col == pos.col:
+                            if suspect.is_visible and suspect.label == self.target_label:
+                                known_count += 1
+                            elif not suspect.is_visible:
+                                unknowns.append(pos)
+                            break
                 
                 if known_count + len(unknowns) == self.count:
                     # All unknowns must be the target label
                     for pos in unknowns:
                         deductions.append((pos, self.target_label, f"Positional constraint: {self.direction.value}"))
+                elif known_count + len(unknowns) > self.count:
+                    # We have more unknowns than needed, but we can still make deductions
+                    # If we need exactly N criminals and have M unknowns, then M-N must be innocent
+                    if known_count < self.count:
+                        # We still need some criminals
+                        needed_criminals = self.count - known_count
+                        if len(unknowns) == needed_criminals + 1:
+                            # We have exactly one more unknown than needed criminals
+                            # This means exactly one of the unknowns must be innocent
+                            # But we can't determine which one, so no deduction
+                            pass
         
         return deductions
 
@@ -261,6 +305,52 @@ class RelativeConstraint(Constraint):
             # "The only innocent above me is closer to Floyd than to Bruce"
             # This would require distance calculations
             pass
+        
+        return deductions
+
+# ============================================================================
+# SPECIFIC CHARACTER CONSTRAINTS
+# ============================================================================
+
+@dataclass
+class SpecificCharacterConstraint(Constraint):
+    """Constraints about specific characters being part of a group."""
+    
+    specific_character: Position  # The specific character (e.g., Tyler)
+    target_positions: List[Position]  # All positions in the group
+    target_label: Label  # The label the character must have
+    count: int  # Total count in the group
+    source_position: Position  # Who gave this hint
+    
+    def check(self, game_state: GameState) -> List[Tuple[Position, Label, str]]:
+        deductions = []
+        
+        # Count how many of target_label are already known in the group
+        known_count = 0
+        unknowns = []
+        for pos in self.target_positions:
+            for cell_name, suspect in game_state.cell_map.items():
+                row, col = game_state._to_cell_coords(cell_name)
+                if row == pos.row and col == pos.col:
+                    if suspect.is_visible and suspect.label == self.target_label:
+                        known_count += 1
+                    elif not suspect.is_visible:
+                        unknowns.append(pos)
+                    break
+        
+        # If the specific character is unknown, they must be the target label
+        specific_unknown = False
+        for cell_name, suspect in game_state.cell_map.items():
+            row, col = game_state._to_cell_coords(cell_name)
+            if row == self.specific_character.row and col == self.specific_character.col:
+                if not suspect.is_visible:
+                    specific_unknown = True
+                break
+        
+        if specific_unknown:
+            # The specific character must be the target label
+            deductions.append((self.specific_character, self.target_label, 
+                             f"Specific character constraint: must be {self.target_label.value}"))
         
         return deductions
 

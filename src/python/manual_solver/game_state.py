@@ -33,7 +33,7 @@ class Suspect:
             return self._hint
 
     @property
-    def label(self) -> Optional[str]:
+    def label(self) -> Optional[Label]:
         if self.is_visible:
             return self._label
 

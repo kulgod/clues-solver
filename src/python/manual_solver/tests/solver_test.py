@@ -9,7 +9,10 @@ class TestPuzzleSolver(unittest.TestCase):
     
     def test_example_game(self):
         game = GameState.from_grid(example_board_2025_08_09)
-        print(CluesSolver.solve_step_by_step(game))
+        certain_moves = CluesSolver.find_certain_moves(game)
+        self.assertEqual(len(certain_moves), 1)
+        self.assertEqual(certain_moves[0].suspect.name, "Tyler")
+        self.assertEqual(certain_moves[0].label, Label.CRIMINAL)
         
 
 if __name__ == "__main__":
