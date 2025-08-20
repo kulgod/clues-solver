@@ -1,0 +1,35 @@
+{
+    "manifest_version": 3,
+    "name": "Clues Solver",
+    "version": "1.0",
+    "description": "AI-powered solver for Clues puzzle game",
+
+    "permissions": [
+        "activeTab",
+        "storage"
+    ],
+
+    "host_permissions": [
+        "https://*.cluesbysam.com/*",
+        "https://cluesbysam.com/*"
+    ],
+
+    "background": {
+        "service_worker": "background.js"
+    },
+
+    "content_scripts": [{
+        "matches": ["https://*.cluesbysam.com/*", "https://cluesbysam.com/*"],
+        "js": ["content.js"],
+        "run_at": "document_end"
+    }],
+
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "Clues Solver"
+    },
+
+    "icons": {
+        "36": "icons/icon.png"
+    }
+}
