@@ -63,13 +63,8 @@ def analyze_game():
         try:
             game_state = GameState.from_api_data(characters)
             
-            # Render and save grid for debugging
+            # Render grid for debugging (console output only)
             grid_text = game_state.render_as_text()
-            
-            # Save to file for debugging
-            filename = game_state.save_grid_to_file()
-            if filename:
-                print(f"Grid saved to: {filename}")
             
             # Print grid to console
             print("\nReconstructed Grid:")

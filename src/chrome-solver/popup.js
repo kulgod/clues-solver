@@ -3,18 +3,42 @@ const apiKeyInput = document.getElementById('api-key');
 const solveButton = document.getElementById('solve-button');
 const statusDiv = document.getElementById('status');
 const toggleVisibilityButton = document.getElementById('toggle-visibility');
+const solverModeSelect = document.getElementById('solver-mode');
+const apiKeySection = document.getElementById('api-key-section');
 
-// Load saved API key
-chrome.storage.local.get(['apiKey'], function(result) {
+// Load saved API key and solver mode
+chrome.storage.local.get(['apiKey', 'solverMode'], function(result) {
   if (result.apiKey) {
     apiKeyInput.value = result.apiKey;
   }
+  
+  // Set solver mode (default to OpenAI if not set)
+  const savedMode = result.solverMode || 'openai';
+  solverModeSelect.value = savedMode;
+  updateUIForMode(savedMode);
 });
 
 // Save API key when it changes
 apiKeyInput.addEventListener('input', function() {
   chrome.storage.local.set({apiKey: apiKeyInput.value});
 });
+
+// Handle solver mode changes
+solverModeSelect.addEventListener('change', function() {
+  const selectedMode = this.value;
+  chrome.storage.local.set({solverMode: selectedMode});
+  updateUIForMode(selectedMode);
+});
+
+// Update UI based on selected mode
+function updateUIForMode(mode) {
+  if (mode === 'python') {
+    apiKeySection.style.display = 'none';
+  } else {
+    apiKeySection.style.display = 'block';
+  }
+  solveButton.textContent = 'Get Recommendation';
+}
 
 // Toggle API key visibility
 toggleVisibilityButton.addEventListener('click', function() {
@@ -29,9 +53,11 @@ toggleVisibilityButton.addEventListener('click', function() {
 
 // Handle solve button click
 solveButton.addEventListener('click', async function() {
+  const solverMode = solverModeSelect.value;
   const apiKey = apiKeyInput.value.trim();
   
-  if (!apiKey) {
+  // Only require API key for OpenAI mode
+  if (solverMode === 'openai' && !apiKey) {
     showStatus('Please enter your OpenAI API key', 'error');
     return;
   }
@@ -54,7 +80,8 @@ solveButton.addEventListener('click', async function() {
     const response = await new Promise((resolve) => {
       chrome.tabs.sendMessage(tab.id, {
         action: 'solveMove',
-        apiKey: apiKey
+        apiKey: apiKey,
+        solverMode: solverMode
       }, (response) => {
         if (chrome.runtime.lastError) {
           resolve({success: false, error: chrome.runtime.lastError.message});
@@ -76,7 +103,7 @@ solveButton.addEventListener('click', async function() {
   } finally {
     // Re-enable button
     solveButton.disabled = false;
-    solveButton.textContent = 'Get AI Recommendation';
+    solveButton.textContent = 'Get Recommendation';
   }
 });
 

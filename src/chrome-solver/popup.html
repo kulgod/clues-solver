@@ -153,7 +153,15 @@
 <body>
     <h1>Clues Solver</h1>
 
-    <div class="api-key-section">
+    <div class="solver-mode-section" style="margin-bottom: 15px;">
+        <label for="solver-mode">Solver Mode:</label>
+        <select id="solver-mode" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 5px;">
+            <option value="openai">gpt-4o</option>
+            <option value="python">py-analyzer</option>
+        </select>
+    </div>
+
+    <div class="api-key-section" id="api-key-section">
         <label for="api-key">OpenAI API Key:</label>
         <div style="display: flex; gap: 5px; align-items: center;">
             <input type="password" id="api-key" placeholder="sk-..." style="flex: 1;">

@@ -17,13 +17,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // Wrap in try-catch to ensure we always send a response
         (async () => {
             try {
-                const result = await handleSolveMove(request.apiKey);
+                const result = await handleSolveMove(request.apiKey, request.solverMode);
                 sendResponse(result);
             } catch (error) {
                 console.error('Error in handleSolveMove:', error);
                 sendResponse({
                     success: false,
-                    error: error.message
+                    error: error.message || 'An unexpected error occurred'
                 });
             }
         })();
@@ -33,26 +33,49 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-async function handleSolveMove(apiKey) {
+async function handleSolveMove(apiKey, solverMode = 'openai') {
+    console.log('Starting analysis with mode:', solverMode);
+    
     try {
-        // Step 1: Parse game state from DOM
-        console.log('Parsing game state from DOM...');
-        const gameState = parseGameState();
+        if (solverMode === 'python') {
+            // Step 1: Parse game state from DOM
+            console.log('Parsing game state from DOM...');
+            const gameState = parseGameState();
 
-        // Step 2: Send to Python server for analysis
-        console.log('Sending to Python server...');
-        const analysis = await analyzeWithPythonServer(gameState);
+            // Step 2: Send to Python server for analysis
+            console.log('Sending to Python server...');
+            const analysis = await analyzeWithPythonServer(gameState);
 
-        // Step 3: Return the recommendation
-        console.log('Server recommendation:', analysis);
+            // Step 3: Return the recommendation
+            console.log('Server recommendation:', analysis);
 
-        return {
-            success: true,
-            character: analysis.character,
-            label: analysis.label,
-            reasoning: analysis.reasoning,
-            confidence: analysis.confidence || 'high'
-        };
+            return {
+                success: true,
+                character: analysis.recommendation.character,
+                label: analysis.recommendation.label,
+                reasoning: analysis.recommendation.reasoning,
+                confidence: analysis.recommendation.confidence,
+                source: 'py-analyzer'
+            };
+        } else {
+            // GPT-4 mode - use screenshot analysis
+            console.log('Taking screenshot...');
+            const screenshot = await takeScreenshot();
+
+            console.log('Analyzing with GPT-4...');
+            const analysis = await analyzeWithOpenAI(screenshot, apiKey);
+
+            console.log('GPT-4 recommendation:', analysis);
+
+            return {
+                success: true,
+                character: analysis.character,
+                label: analysis.label,
+                reasoning: analysis.reasoning,
+                confidence: analysis.confidence || 'medium',
+                source: 'gpt-4'
+            };
+        }
 
     } catch (error) {
         console.error('Error in handleSolveMove:', error);
