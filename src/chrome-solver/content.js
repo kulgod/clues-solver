@@ -51,10 +51,10 @@ async function handleSolveMove(apiKey, solverMode = 'openai') {
 
             return {
                 success: true,
-                character: analysis.recommendation.character,
-                label: analysis.recommendation.label,
-                reasoning: analysis.recommendation.reasoning,
-                confidence: analysis.recommendation.confidence,
+                character: analysis.character,
+                label: analysis.label,
+                reasoning: analysis.reasoning,
+                confidence: analysis.confidence,
                 source: 'py-analyzer'
             };
         } else {
