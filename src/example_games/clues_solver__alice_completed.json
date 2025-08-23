@@ -1,0 +1,144 @@
+{
+  "characters": [
+    {
+      "name": "Alice",
+      "profession": "sleuth",
+      "coord": "A1",
+      "label": "innocent",
+      "hint": "My neighbor Bob is a criminal. Click on him to identify him!"
+    },
+    {
+      "name": "Bob",
+      "profession": "pilot",
+      "coord": "B1",
+      "label": "criminal",
+      "hint": "Alice is the only innocent in my row"
+    },
+    {
+      "name": "Clyde",
+      "profession": "teacher",
+      "coord": "C1",
+      "label": "criminal",
+      "hint": "Everyone speaks the truth, even us criminals"
+    },
+    {
+      "name": "Dave",
+      "profession": "judge",
+      "coord": "D1",
+      "label": "criminal",
+      "hint": "I have exactly 2 innocent neighbors. Gabe is one of them."
+    },
+    {
+      "name": "Erica",
+      "profession": "sleuth",
+      "coord": "A2",
+      "label": "criminal",
+      "hint": "You can check the bottom of the page for more detailed instructions"
+    },
+    {
+      "name": "Frank",
+      "profession": "pilot",
+      "coord": "B2",
+      "label": "innocent",
+      "hint": "You did it! You caught them all!"
+    },
+    {
+      "name": "Gabe",
+      "profession": "teacher",
+      "coord": "C2",
+      "label": "innocent",
+      "hint": "I have an innocent directly below me"
+    },
+    {
+      "name": "Hilda",
+      "profession": "judge",
+      "coord": "D2",
+      "label": "criminal",
+      "hint": "There are 3 people below Gabe, but only Kevin is directly below him"
+    },
+    {
+      "name": "Izzy",
+      "profession": "guard",
+      "coord": "A3",
+      "label": "innocent",
+      "hint": "You can tap on clues to dim the ones you don't need anymore"
+    },
+    {
+      "name": "Jane",
+      "profession": "coder",
+      "coord": "B3",
+      "label": "innocent",
+      "hint": "There are 9 criminals on the edges. Like Pete and Quinn."
+    },
+    {
+      "name": "Kevin",
+      "profession": "teacher",
+      "coord": "C3",
+      "label": "innocent",
+      "hint": "Even cops can be criminals. In fact, this time both of them are!"
+    },
+    {
+      "name": "Leo",
+      "profession": "coder",
+      "coord": "D3",
+      "label": "innocent",
+      "hint": "There are more criminals among cops than any other profession"
+    },
+    {
+      "name": "Maddy",
+      "profession": "guard",
+      "coord": "A4",
+      "label": "criminal",
+      "hint": "And what about Olga? Don't forget what Quinn said"
+    },
+    {
+      "name": "Neo",
+      "profession": "doctor",
+      "coord": "B4",
+      "label": "innocent",
+      "hint": "Well done! Maddy is also innocent"
+    },
+    {
+      "name": "Olga",
+      "profession": "farmer",
+      "coord": "C4",
+      "label": "criminal",
+      "hint": "Maddy and Neo have 2 innocent neighbors in common. Izzy is one of them."
+    },
+    {
+      "name": "Pete",
+      "profession": "guard",
+      "coord": "D4",
+      "label": "criminal",
+      "hint": "Innocents in my row are connected. Therefore Neo must be...?"
+    },
+    {
+      "name": "Quinn",
+      "profession": "cop",
+      "coord": "A5",
+      "label": "criminal",
+      "hint": "There are exactly 2 innocents in row 4"
+    },
+    {
+      "name": "Ray",
+      "profession": "doctor",
+      "coord": "B5",
+      "label": "criminal",
+      "hint": "I have exactly 2 innocent neighbors in row 4"
+    },
+    {
+      "name": "Sue",
+      "profession": "farmer",
+      "coord": "C5",
+      "label": "innocent",
+      "hint": "Combining Quinn's and Ray's clues tells you something about Pete"
+    },
+    {
+      "name": "Tom",
+      "profession": "cop",
+      "coord": "D5",
+      "label": "criminal",
+      "hint": "The only innocent in row 5 is a farmer"
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "characters": [
+    {
+      "name": "Alice",
+      "profession": "sleuth",
+      "coord": "A1",
+      "label": "innocent",
+      "hint": "My neighbor Bob is a criminal. Click on him to identify him!"
+    },
+    {
+      "name": "Bob",
+      "profession": "pilot",
+      "coord": "B1",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Clyde",
+      "profession": "teacher",
+      "coord": "C1",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Dave",
+      "profession": "judge",
+      "coord": "D1",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Erica",
+      "profession": "sleuth",
+      "coord": "A2",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Frank",
+      "profession": "pilot",
+      "coord": "B2",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Gabe",
+      "profession": "teacher",
+      "coord": "C2",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Hilda",
+      "profession": "judge",
+      "coord": "D2",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Izzy",
+      "profession": "guard",
+      "coord": "A3",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Jane",
+      "profession": "coder",
+      "coord": "B3",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Kevin",
+      "profession": "teacher",
+      "coord": "C3",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Leo",
+      "profession": "coder",
+      "coord": "D3",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Maddy",
+      "profession": "guard",
+      "coord": "A4",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Neo",
+      "profession": "doctor",
+      "coord": "B4",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Olga",
+      "profession": "farmer",
+      "coord": "C4",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Pete",
+      "profession": "guard",
+      "coord": "D4",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Quinn",
+      "profession": "cop",
+      "coord": "A5",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Ray",
+      "profession": "doctor",
+      "coord": "B5",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Sue",
+      "profession": "farmer",
+      "coord": "C5",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Tom",
+      "profession": "cop",
+      "coord": "D5",
+      "label": "unknown",
+      "hint": null
+    }
+  ]
+}

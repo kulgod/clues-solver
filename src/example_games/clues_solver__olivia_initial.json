@@ -1,0 +1,144 @@
+{
+  "characters": [
+    {
+      "name": "Betty",
+      "profession": "cop",
+      "coord": "A1",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Cheryl",
+      "profession": "builder",
+      "coord": "B1",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Donna",
+      "profession": "sleuth",
+      "coord": "C1",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Ethan",
+      "profession": "sleuth",
+      "coord": "D1",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Frank",
+      "profession": "builder",
+      "coord": "A2",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Gabe",
+      "profession": "builder",
+      "coord": "B2",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Henry",
+      "profession": "sleuth",
+      "coord": "C2",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Isaac",
+      "profession": "teacher",
+      "coord": "D2",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Jose",
+      "profession": "farmer",
+      "coord": "A3",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Kay",
+      "profession": "farmer",
+      "coord": "B3",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Mark",
+      "profession": "farmer",
+      "coord": "C3",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Olivia",
+      "profession": "painter",
+      "coord": "D3",
+      "label": "innocent",
+      "hint": "Both criminals below Ethan are connected"
+    },
+    {
+      "name": "Peter",
+      "profession": "singer",
+      "coord": "A4",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Rose",
+      "profession": "teacher",
+      "coord": "B4",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Susan",
+      "profession": "singer",
+      "coord": "C4",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Terry",
+      "profession": "painter",
+      "coord": "D4",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Vince",
+      "profession": "painter",
+      "coord": "A5",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Wanda",
+      "profession": "cook",
+      "coord": "B5",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Xena",
+      "profession": "cop",
+      "coord": "C5",
+      "label": "unknown",
+      "hint": null
+    },
+    {
+      "name": "Zara",
+      "profession": "cook",
+      "coord": "D5",
+      "label": "unknown",
+      "hint": null
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "characters": [
+    {
+      "name": "Betty",
+      "profession": "cop",
+      "coord": "A1",
+      "label": "criminal",
+      "hint": "I beg you! Catch our boss! I need my charger back!"
+    },
+    {
+      "name": "Cheryl",
+      "profession": "builder",
+      "coord": "B1",
+      "label": "innocent",
+      "hint": "Jose has more innocent neighbors than Ethan"
+    },
+    {
+      "name": "Donna",
+      "profession": "sleuth",
+      "coord": "C1",
+      "label": "criminal",
+      "hint": "I'm actually quite enjoying my time without a phone..."
+    },
+    {
+      "name": "Ethan",
+      "profession": "sleuth",
+      "coord": "D1",
+      "label": "innocent",
+      "hint": "2 of the 4 innocents neighboring Cheryl are on the edges"
+    },
+    {
+      "name": "Frank",
+      "profession": "builder",
+      "coord": "A2",
+      "label": "criminal",
+      "hint": "There are a total of 4 innocent cops and sleuths"
+    },
+    {
+      "name": "Gabe",
+      "profession": "builder",
+      "coord": "B2",
+      "label": "criminal",
+      "hint": "I'm sure you'll catch the charger thief soon!"
+    },
+    {
+      "name": "Henry",
+      "profession": "sleuth",
+      "coord": "C2",
+      "label": "criminal",
+      "hint": "There's an odd number of criminals on the edges"
+    },
+    {
+      "name": "Isaac",
+      "profession": "teacher",
+      "coord": "D2",
+      "label": "criminal",
+      "hint": "Both innocents to the left of Ethan are connected"
+    },
+    {
+      "name": "Jose",
+      "profession": "farmer",
+      "coord": "A3",
+      "label": "innocent",
+      "hint": "I saw someone charging a phone in a caf\u00e9! Could it be..."
+    },
+    {
+      "name": "Kay",
+      "profession": "farmer",
+      "coord": "B3",
+      "label": "innocent",
+      "hint": "Our boss has my charger as well... I don't think I'll ever see it again."
+    },
+    {
+      "name": "Mark",
+      "profession": "farmer",
+      "coord": "C3",
+      "label": "innocent",
+      "hint": "Cheryl and Zara have an equal number of criminal neighbors"
+    },
+    {
+      "name": "Olivia",
+      "profession": "painter",
+      "coord": "D3",
+      "label": "innocent",
+      "hint": "Both criminals below Ethan are connected"
+    },
+    {
+      "name": "Peter",
+      "profession": "singer",
+      "coord": "A4",
+      "label": "innocent",
+      "hint": "No charger, no phone. Finally I get some time to write my next song..."
+    },
+    {
+      "name": "Rose",
+      "profession": "teacher",
+      "coord": "B4",
+      "label": "criminal",
+      "hint": "Vince and Isaac have an equal number of criminal neighbors"
+    },
+    {
+      "name": "Susan",
+      "profession": "singer",
+      "coord": "C4",
+      "label": "criminal",
+      "hint": "Vince is one of 4 innocents in column A"
+    },
+    {
+      "name": "Terry",
+      "profession": "painter",
+      "coord": "D4",
+      "label": "innocent",
+      "hint": "There's an odd number of criminals in row 1"
+    },
+    {
+      "name": "Vince",
+      "profession": "painter",
+      "coord": "A5",
+      "label": "innocent",
+      "hint": "Even the criminals are starting to turn against the charger thief!"
+    },
+    {
+      "name": "Wanda",
+      "profession": "cook",
+      "coord": "B5",
+      "label": "criminal",
+      "hint": "I've started sending letters to friends and family. It's fun!"
+    },
+    {
+      "name": "Xena",
+      "profession": "cop",
+      "coord": "C5",
+      "label": "innocent",
+      "hint": "4 of the 6 innocents neighboring Gabe are on the edges"
+    },
+    {
+      "name": "Zara",
+      "profession": "cook",
+      "coord": "D5",
+      "label": "innocent",
+      "hint": "Frank and Ethan have 6 innocent neighbors in total"
+    }
+  ]
+}
