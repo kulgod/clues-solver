@@ -7,6 +7,13 @@ Receives character data from Chrome extension and returns move recommendations.
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
+import os
+import sys
+
+# Add the manual_solver directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'manual_solver'))
+
+from game_state import GameState
 
 app = Flask(__name__)
 CORS(app)  # Allow requests from Chrome extension
@@ -52,11 +59,30 @@ def analyze_game():
         characters = data['characters']
         print(f"Received {len(characters)} characters")
         
-        # For now, simple analysis - just log the data and return a placeholder
-        for char in characters:
-            print(f"  {char['coord']}: {char['name']} ({char['profession']}) - {char['label']}")
-            if char.get('hint'):
-                print(f"    Hint: {char['hint']}")
+        # Create GameState from API data
+        try:
+            game_state = GameState.from_api_data(characters)
+            
+            # Render and save grid for debugging
+            grid_text = game_state.render_as_text()
+            
+            # Save to file for debugging
+            filename = game_state.save_grid_to_file()
+            if filename:
+                print(f"Grid saved to: {filename}")
+            
+            # Print grid to console
+            print("\nReconstructed Grid:")
+            print(grid_text)
+            
+            # Log individual characters
+            for char in characters:
+                print(f"  {char['coord']}: {char['name']} ({char['profession']}) - {char['label']}")
+                if char.get('hint'):
+                    print(f"    Hint: {char['hint']}")
+            
+        except Exception as e:
+            print(f"Error creating GameState or grid visualization: {e}")
         
         # TODO: Integrate with actual constraint solving logic
         
