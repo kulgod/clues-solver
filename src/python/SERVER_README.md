@@ -35,11 +35,15 @@ Analyzes game state and returns move recommendation.
     {
       "name": "Alice",
       "profession": "sleuth",
-      "row": 0,
-      "col": 0, 
       "coord": "A1",
       "label": "innocent",
       "hint": "My neighbor Bob is a criminal"
+    },
+    {
+      "name": "Bob",
+      "profession": "sleuth",
+      "coord": "A2",
+      "label": "unknown"
     }
   ]
 }

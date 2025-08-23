@@ -22,8 +22,6 @@ def analyze_game():
             {
                 "name": "Alice",
                 "profession": "sleuth", 
-                "row": 0,
-                "col": 0,
                 "coord": "A1",
                 "label": "innocent",
                 "hint": "My neighbor Bob is a criminal"

@@ -99,10 +99,6 @@ function parseCharacterCard(card) {
     }
     const coord = coordElement.textContent.trim();
 
-    // Parse coordinate into row/col (A1 -> row=0, col=0)
-    const col = coord.charCodeAt(0) - 65; // A=0, B=1, etc.
-    const row = parseInt(coord.slice(1)) - 1; // 1=0, 2=1, etc.
-
     // Get name
     const nameElement = card.querySelector('.name h3');
     if (!nameElement) {
@@ -139,8 +135,6 @@ function parseCharacterCard(card) {
     return {
         name: name,
         profession: profession,
-        row: row,
-        col: col,
         coord: coord,
         label: label,
         hint: hint
