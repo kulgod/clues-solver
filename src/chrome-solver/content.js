@@ -5,69 +5,188 @@ console.log('Clues Solver content script loaded');
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'ping') {
-    sendResponse({success: true, message: 'Content script is loaded'});
-    return true;
-  }
-  
-  if (request.action === 'solveMove') {
-    // Wrap in try-catch to ensure we always send a response
-    (async () => {
-      try {
-        const result = await handleSolveMove(request.apiKey);
-        sendResponse(result);
-      } catch (error) {
-        console.error('Error in handleSolveMove:', error);
-        sendResponse({success: false, error: error.message});
-      }
-    })();
-    
-    // Return true to indicate we'll send response asynchronously
-    return true;
-  }
+    if (request.action === 'ping') {
+        sendResponse({
+            success: true,
+            message: 'Content script is loaded'
+        });
+        return true;
+    }
+
+    if (request.action === 'solveMove') {
+        // Wrap in try-catch to ensure we always send a response
+        (async () => {
+            try {
+                const result = await handleSolveMove(request.apiKey);
+                sendResponse(result);
+            } catch (error) {
+                console.error('Error in handleSolveMove:', error);
+                sendResponse({
+                    success: false,
+                    error: error.message
+                });
+            }
+        })();
+
+        // Return true to indicate we'll send response asynchronously
+        return true;
+    }
 });
 
 async function handleSolveMove(apiKey) {
-  try {
-    // Step 1: Take screenshot
-    console.log('Taking screenshot...');
-    const screenshot = await takeScreenshot();
-    
-    // Step 2: Send to OpenAI API
-    console.log('Sending to OpenAI API...');
-    const analysis = await analyzeWithOpenAI(screenshot, apiKey);
-    
-    // Step 3: Return the recommendation (don't execute automatically)
-    console.log('AI recommendation:', analysis);
-    
-    return {
-      success: true,
-      character: analysis.character,
-      label: analysis.label,
-      reasoning: analysis.reasoning,
-      confidence: analysis.confidence
+    try {
+        // Step 1: Parse game state from DOM
+        console.log('Parsing game state from DOM...');
+        const gameState = parseGameState();
+
+        // Step 2: Send to Python server for analysis
+        console.log('Sending to Python server...');
+        const analysis = await analyzeWithPythonServer(gameState);
+
+        // Step 3: Return the recommendation
+        console.log('Server recommendation:', analysis);
+
+        return {
+            success: true,
+            character: analysis.character,
+            label: analysis.label,
+            reasoning: analysis.reasoning,
+            confidence: analysis.confidence || 'high'
+        };
+
+    } catch (error) {
+        console.error('Error in handleSolveMove:', error);
+        throw error;
+    }
+}
+
+function parseGameState() {
+    const gameState = {
+        characters: []
     };
-    
-  } catch (error) {
-    console.error('Error in handleSolveMove:', error);
-    throw error;
-  }
+
+    // Find the game grid container
+    const gridContainer = document.querySelector('.card-grid');
+    if (!gridContainer) {
+        throw new Error('Game grid not found on page');
+    }
+
+    // Get all card containers
+    const cardContainers = gridContainer.querySelectorAll('div > .card');
+
+    for (const card of cardContainers) {
+        try {
+            const character = parseCharacterCard(card);
+            if (character) {
+                gameState.characters.push(character);
+            }
+        } catch (error) {
+            console.warn('Failed to parse character card:', error);
+            // Continue parsing other cards
+        }
+    }
+
+    console.log('Parsed game state:', gameState);
+    return gameState;
+}
+
+function parseCharacterCard(card) {
+    // Get coordinate
+    const coordElement = card.querySelector('.coord');
+    if (!coordElement) {
+        console.warn('No coordinate found for card');
+        return null;
+    }
+    const coord = coordElement.textContent.trim();
+
+    // Parse coordinate into row/col (A1 -> row=0, col=0)
+    const col = coord.charCodeAt(0) - 65; // A=0, B=1, etc.
+    const row = parseInt(coord.slice(1)) - 1; // 1=0, 2=1, etc.
+
+    // Get name
+    const nameElement = card.querySelector('.name h3');
+    if (!nameElement) {
+        console.warn('No name found for card at', coord);
+        return null;
+    }
+    const name = nameElement.textContent.trim();
+
+    // Get profession
+    const professionElement = card.querySelector('.profession');
+    if (!professionElement) {
+        console.warn('No profession found for card at', coord);
+        return null;
+    }
+    const profession = professionElement.textContent.trim();
+
+    // Determine label (innocent/criminal/unknown)
+    let label = 'unknown';
+    if (card.classList.contains('flipped')) {
+        if (card.classList.contains('innocent')) {
+            label = 'innocent';
+        } else if (card.classList.contains('criminal')) {
+            label = 'criminal';
+        }
+    }
+
+    // Get hint (only for revealed cards)
+    let hint = null;
+    const hintElement = card.querySelector('.hint');
+    if (hintElement) {
+        hint = hintElement.textContent.trim();
+    }
+
+    return {
+        name: name,
+        profession: profession,
+        row: row,
+        col: col,
+        coord: coord,
+        label: label,
+        hint: hint
+    };
+}
+
+async function analyzeWithPythonServer(gameState) {
+    const response = await fetch('http://localhost:8000/analyze', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            characters: gameState.characters
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || 'Server analysis failed');
+    }
+
+    return data.recommendation;
 }
 
 async function takeScreenshot() {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({action: 'takeScreenshot'}, (response) => {
-      if (response.success) {
-        resolve(response.screenshot);
-      } else {
-        reject(new Error(response.error || 'Failed to take screenshot'));
-      }
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'takeScreenshot'
+        }, (response) => {
+            if (response.success) {
+                resolve(response.screenshot);
+            } else {
+                reject(new Error(response.error || 'Failed to take screenshot'));
+            }
+        });
     });
-  });
 }
 
 async function analyzeWithOpenAI(screenshot, apiKey) {
-  const prompt = `This is a screenshot of a Clues puzzle game by Sam. The game has a 5x4 grid of characters arranged in rows and columns.
+    const prompt = `This is a screenshot of a Clues puzzle game by Sam. The game has a 5x4 grid of characters arranged in rows and columns.
 
 GRID LAYOUT:
 - 5 rows (numbered 1-5 from top to bottom)
@@ -113,139 +232,141 @@ Return JSON in this exact format:
 
 Only suggest a move if you are completely certain. If no certain move exists, return {"error": "No certain moves available"}.`;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { 
-              type: 'image_url', 
-              image_url: { url: `data:image/png;base64,${screenshot}` }
-            }
-          ]
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [{
+                role: 'user',
+                content: [{
+                        type: 'text',
+                        text: prompt
+                    },
+                    {
+                        type: 'image_url',
+                        image_url: {
+                            url: `data:image/png;base64,${screenshot}`
+                        }
+                    }
+                ]
+            }],
+            max_completion_tokens: 3000
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    let content = data.choices[0].message.content;
+
+    // Check for empty content due to token limits
+    if (!content || content.trim() === '') {
+        console.log('Full API response:', JSON.stringify(data, null, 2));
+        if (data.choices[0].finish_reason === 'length') {
+            throw new Error('AI response was cut off due to token limit. The puzzle might be too complex for current settings.');
         }
-      ],
-      max_completion_tokens: 3000
-    })
-  });
+        throw new Error('AI returned empty response');
+    }
 
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-  }
+    // Remove markdown code blocks if present
+    content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 
-  const data = await response.json();
-  let content = data.choices[0].message.content;
-  
-  // Check for empty content due to token limits
-  if (!content || content.trim() === '') {
-    console.log('Full API response:', JSON.stringify(data, null, 2));
-    if (data.choices[0].finish_reason === 'length') {
-      throw new Error('AI response was cut off due to token limit. The puzzle might be too complex for current settings.');
-    }
-    throw new Error('AI returned empty response');
-  }
-  
-  // Remove markdown code blocks if present
-  content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-  
-  try {
-    console.log('Raw AI response:', content);
-    const analysis = JSON.parse(content);
-    
-    if (analysis.error) {
-      throw new Error(analysis.error);
-    }
-    
-    if (!analysis.character || !analysis.label) {
-      throw new Error('Invalid response from OpenAI API - missing character or label');
-    }
-    
-    return analysis;
-  } catch (parseError) {
-    console.error('Failed to parse OpenAI response:', content);
-    console.error('Parse error details:', parseError);
-    
-    // Try to extract JSON from a longer response
-    const jsonMatch = content.match(/\{[^{}]*"character"[^{}]*\}/);
-    if (jsonMatch) {
-      try {
-        const analysis = JSON.parse(jsonMatch[0]);
-        console.log('Extracted JSON successfully:', analysis);
+    try {
+        console.log('Raw AI response:', content);
+        const analysis = JSON.parse(content);
+
+        if (analysis.error) {
+            throw new Error(analysis.error);
+        }
+
+        if (!analysis.character || !analysis.label) {
+            throw new Error('Invalid response from OpenAI API - missing character or label');
+        }
+
         return analysis;
-      } catch (extractError) {
-        console.error('Failed to extract JSON as well:', extractError);
-      }
+    } catch (parseError) {
+        console.error('Failed to parse OpenAI response:', content);
+        console.error('Parse error details:', parseError);
+
+        // Try to extract JSON from a longer response
+        const jsonMatch = content.match(/\{[^{}]*"character"[^{}]*\}/);
+        if (jsonMatch) {
+            try {
+                const analysis = JSON.parse(jsonMatch[0]);
+                console.log('Extracted JSON successfully:', analysis);
+                return analysis;
+            } catch (extractError) {
+                console.error('Failed to extract JSON as well:', extractError);
+            }
+        }
+
+        throw new Error(`Failed to parse AI response. Raw response: ${content.substring(0, 200)}...`);
     }
-    
-    throw new Error(`Failed to parse AI response. Raw response: ${content.substring(0, 200)}...`);
-  }
 }
 
 async function executeMove(characterName, label) {
-  // Find the character element by text content
-  const characterElements = document.querySelectorAll('[class*="character"], [class*="suspect"], [class*="person"]');
-  
-  let targetElement = null;
-  for (const element of characterElements) {
-    if (element.textContent.includes(characterName)) {
-      targetElement = element;
-      break;
+    // Find the character element by text content
+    const characterElements = document.querySelectorAll('[class*="character"], [class*="suspect"], [class*="person"]');
+
+    let targetElement = null;
+    for (const element of characterElements) {
+        if (element.textContent.includes(characterName)) {
+            targetElement = element;
+            break;
+        }
     }
-  }
-  
-  if (!targetElement) {
-    // Fallback: try any element containing the character name
-    const allElements = document.querySelectorAll('*');
-    for (const element of allElements) {
-      if (element.textContent.trim() === characterName || 
-          element.textContent.includes(characterName)) {
-        targetElement = element;
-        break;
-      }
+
+    if (!targetElement) {
+        // Fallback: try any element containing the character name
+        const allElements = document.querySelectorAll('*');
+        for (const element of allElements) {
+            if (element.textContent.trim() === characterName ||
+                element.textContent.includes(characterName)) {
+                targetElement = element;
+                break;
+            }
+        }
     }
-  }
-  
-  if (!targetElement) {
-    throw new Error(`Could not find character "${characterName}" on the page`);
-  }
-  
-  // Click the character
-  targetElement.click();
-  
-  // Wait a moment for the options to appear
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Look for innocent/criminal buttons
-  const labelText = label.toLowerCase();
-  const buttons = document.querySelectorAll('button, [role="button"], .btn, [class*="button"]');
-  
-  let labelButton = null;
-  for (const button of buttons) {
-    const buttonText = button.textContent.toLowerCase();
-    if (buttonText.includes(labelText) || 
-        buttonText.includes(labelText === 'criminal' ? 'guilt' : 'innoc')) {
-      labelButton = button;
-      break;
+
+    if (!targetElement) {
+        throw new Error(`Could not find character "${characterName}" on the page`);
     }
-  }
-  
-  if (!labelButton) {
-    throw new Error(`Could not find "${label}" button after clicking character`);
-  }
-  
-  // Click the label button
-  labelButton.click();
-  
-  // Wait a moment to see if the move was accepted
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  console.log(`Move executed: ${characterName} → ${label}`);
+
+    // Click the character
+    targetElement.click();
+
+    // Wait a moment for the options to appear
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Look for innocent/criminal buttons
+    const labelText = label.toLowerCase();
+    const buttons = document.querySelectorAll('button, [role="button"], .btn, [class*="button"]');
+
+    let labelButton = null;
+    for (const button of buttons) {
+        const buttonText = button.textContent.toLowerCase();
+        if (buttonText.includes(labelText) ||
+            buttonText.includes(labelText === 'criminal' ? 'guilt' : 'innoc')) {
+            labelButton = button;
+            break;
+        }
+    }
+
+    if (!labelButton) {
+        throw new Error(`Could not find "${label}" button after clicking character`);
+    }
+
+    // Click the label button
+    labelButton.click();
+
+    // Wait a moment to see if the move was accepted
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    console.log(`Move executed: ${characterName} → ${label}`);
 }
