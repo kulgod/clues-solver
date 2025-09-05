@@ -4,6 +4,52 @@ from src.python.manual_solver.constraints import (
     Constraint, CountConstraint, PositionalConstraint, NeighborConstraint, 
     RelativeConstraint, ExistenceConstraint, SpecificCharacterConstraint, Position, Label
 )
+"""
+Each hint is provided in a cell with:
+- a character name (e.g. 'Gabe')
+- cell coordinate (e.g. 'A1')
+- a profession (e.g. 'cop')
+- a label (suspect, innocent, or unknown)
+
+Example hints (simple):
+- "Even cops can be criminals. In fact, this time both of them are!"
+- "I have an innocent directly below me"
+- "I have exactly 2 innocent neighbors. Gabe is one of them."
+
+More complext hints:
+- "2 of the 4 innocents neighboring Cheryl are on the edges"
+- "There are a total of 4 innocent cops and sleuths"
+- "Both innocents to the left of Ethan are connected"
+
+We want to parse these hints into a constraint. The constraint should be expressed as a 
+composition of one or more functions. 
+
+Example 1:
+- Hint: 
+  - "Even cops can be criminals. In fact, this time both of them are!"
+- Required functions: 
+  - sum
+  - filter_label
+  - filter_profession
+  - get_all
+- Constraint(s): 
+  - sum(filter_label(filter_profession(get_all(), 'cop'), 'criminal)) == 2
+
+
+Example 2:
+- Hint:
+  - "2 of the 4 innocents neighboring Cheryl are on the edges"
+- Required functions: 
+  - sum
+  - filter_label
+  - get_neighbors
+  - filter_edge
+- Constraint(s): 
+  - sum(filter_label(get_neighbors('cheryl'), 'innocent')) == 4
+  - sum(filter_edge(filter_label(get_neighbors('cheryl'), 'innocent'))) == 2
+
+
+"""
 
 class ConstraintParser:
     """Parser that converts natural language hints into structured constraints."""

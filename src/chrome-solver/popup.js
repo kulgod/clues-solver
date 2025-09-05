@@ -5,6 +5,7 @@ const statusDiv = document.getElementById('status');
 const toggleVisibilityButton = document.getElementById('toggle-visibility');
 const solverModeSelect = document.getElementById('solver-mode');
 const apiKeySection = document.getElementById('api-key-section');
+const apiKeyLabel = document.getElementById('api-key-label');
 
 // Load saved API key and solver mode
 chrome.storage.local.get(['apiKey', 'solverMode'], function(result) {
@@ -12,8 +13,8 @@ chrome.storage.local.get(['apiKey', 'solverMode'], function(result) {
     apiKeyInput.value = result.apiKey;
   }
   
-  // Set solver mode (default to OpenAI if not set)
-  const savedMode = result.solverMode || 'openai';
+  // Set solver mode (default to GPT-4o if not set)
+  const savedMode = result.solverMode || 'gpt-4o';
   solverModeSelect.value = savedMode;
   updateUIForMode(savedMode);
 });
@@ -36,6 +37,15 @@ function updateUIForMode(mode) {
     apiKeySection.style.display = 'none';
   } else {
     apiKeySection.style.display = 'block';
+    
+    // Update label and placeholder based on model
+    if (mode.startsWith('claude')) {
+      apiKeyLabel.textContent = 'Anthropic API Key:';
+      apiKeyInput.placeholder = 'sk-ant-...';
+    } else {
+      apiKeyLabel.textContent = 'OpenAI API Key:';
+      apiKeyInput.placeholder = 'sk-...';
+    }
   }
   solveButton.textContent = 'Get Recommendation';
 }
@@ -56,9 +66,10 @@ solveButton.addEventListener('click', async function() {
   const solverMode = solverModeSelect.value;
   const apiKey = apiKeyInput.value.trim();
   
-  // Only require API key for OpenAI mode
-  if (solverMode === 'openai' && !apiKey) {
-    showStatus('Please enter your OpenAI API key', 'error');
+  // Only require API key for AI models (not python analyzer)
+  if (solverMode !== 'python' && !apiKey) {
+    const provider = solverMode.startsWith('claude') ? 'Anthropic' : 'OpenAI';
+    showStatus(`Please enter your ${provider} API key`, 'error');
     return;
   }
   

@@ -33,7 +33,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-async function handleSolveMove(apiKey, solverMode = 'openai') {
+async function handleSolveMove(apiKey, solverMode = 'gpt-4o') {
     console.log('Starting analysis with mode:', solverMode);
     
     try {
@@ -58,14 +58,20 @@ async function handleSolveMove(apiKey, solverMode = 'openai') {
                 source: 'py-analyzer'
             };
         } else {
-            // GPT-4 mode - use screenshot analysis
+            // AI model mode - use screenshot analysis
             console.log('Taking screenshot...');
             const screenshot = await takeScreenshot();
 
-            console.log('Analyzing with GPT-4...');
-            const analysis = await analyzeWithOpenAI(screenshot, apiKey);
+            let analysis;
+            if (solverMode.startsWith('claude')) {
+                console.log(`Analyzing with ${solverMode}...`);
+                analysis = await analyzeWithClaudeViaBackground(screenshot, apiKey, solverMode);
+            } else {
+                console.log(`Analyzing with ${solverMode}...`);
+                analysis = await analyzeWithOpenAIViaBackground(screenshot, apiKey);
+            }
 
-            console.log('GPT-4 recommendation:', analysis);
+            console.log(`${solverMode} recommendation:`, analysis);
 
             return {
                 success: true,
@@ -73,7 +79,7 @@ async function handleSolveMove(apiKey, solverMode = 'openai') {
                 label: analysis.label,
                 reasoning: analysis.reasoning,
                 confidence: analysis.confidence || 'medium',
-                source: 'gpt-4'
+                source: solverMode
             };
         }
 
@@ -325,6 +331,48 @@ Only suggest a move if you are completely certain. If no certain move exists, re
 
         throw new Error(`Failed to parse AI response. Raw response: ${content.substring(0, 200)}...`);
     }
+}
+
+async function analyzeWithClaudeViaBackground(screenshot, apiKey, model) {
+    console.log('Content: Sending Claude request to background script:', model);
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'analyzeWithClaude',
+            screenshot: screenshot,
+            apiKey: apiKey,
+            model: model
+        }, (response) => {
+            console.log('Content: Received response from background:', response);
+            if (chrome.runtime.lastError) {
+                console.error('Content: Chrome runtime error:', chrome.runtime.lastError);
+                reject(new Error(chrome.runtime.lastError.message));
+            } else if (response && response.success) {
+                console.log('Content: Claude analysis successful');
+                resolve(response.result);
+            } else {
+                console.error('Content: Background script error:', response);
+                reject(new Error(response?.error || 'Unknown error from background script'));
+            }
+        });
+    });
+}
+
+async function analyzeWithOpenAIViaBackground(screenshot, apiKey) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'analyzeWithOpenAI',
+            screenshot: screenshot,
+            apiKey: apiKey
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+            } else if (response.success) {
+                resolve(response.result);
+            } else {
+                reject(new Error(response.error));
+            }
+        });
+    });
 }
 
 async function executeMove(characterName, label) {
