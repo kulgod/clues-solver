@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Set, Dict, Tuple, Optional, Union
+from typing import List, Set, Dict, Tuple, Optional, Union, Any
 from dataclasses import dataclass
 from enum import Enum
 
@@ -11,384 +11,830 @@ class Position:
     row: int
     col: int
 
-class Constraint(ABC):
-    """Base class for all game constraints."""
+# ============================================================================
+# AST-BASED CONSTRAINT SYSTEM
+# ============================================================================
+
+class Expression(ABC):
+    """Base class for all AST expressions in the constraint system."""
     
     @abstractmethod
-    def check(self, game_state: GameState) -> List[Tuple[Position, Label, str]]:
-        """
-        Check this constraint against the current game state.
-        Returns list of (position, label, reason) tuples for certain deductions.
-        """
+    def evaluate(self, game_state: GameState) -> Any:
+        """Evaluate this expression against the game state."""
         pass
+    
+    @abstractmethod
+    def get_dependencies(self) -> Set[str]:
+        """Return character names this expression depends on."""
+        pass
+    
+    def __str__(self) -> str:
+        """String representation for debugging."""
+        return f"{self.__class__.__name__}(...)"
+
+class Constraint:
+    """A constraint is a boolean expression that must be satisfied."""
+    
+    def __init__(self, expression: Expression, description: str = ""):
+        self.expression = expression
+        self.description = description
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        """Check if this constraint is satisfied."""
+        try:
+            result = self.expression.evaluate(game_state)
+            return bool(result)
+        except Exception:
+            # If evaluation fails (e.g., unknown character), constraint is not satisfied
+            return False
+    
+    def get_dependencies(self) -> Set[str]:
+        """Get all character names this constraint depends on."""
+        return self.expression.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Constraint({self.expression}) - {self.description}"
 
 # ============================================================================
-# COUNT CONSTRAINTS
+# PRIMITIVE EXPRESSIONS
 # ============================================================================
 
-@dataclass
-class CountConstraint(Constraint):
-    """Constraints about counts of criminals/innocents in specific areas."""
+@dataclass(frozen=True)
+class Character(Expression):
+    """Reference to a specific character by name."""
+    name: str
     
-    class CountType(Enum):
-        EQUAL = "equal"           # "equal number of criminals in columns B and D"
-        MORE_THAN = "more_than"   # "Column C has more innocents than any other column"
-        EXACTLY = "exactly"       # "Bruce has exactly 2 innocent neighbors"
-        TOTAL = "total"           # "There are 11 innocents in total"
-        ONE_OF = "one_of"        # "Tyler is one of 2 criminals below Karen"
-    
-    count_type: CountType
-    target_label: Label  # CRIMINAL or INNOCENT
-    areas: List[List[Position]]  # List of areas to compare (e.g., columns, rows, etc.)
-    count: Optional[int] = None  # For EXACTLY and TOTAL
-    source_position: Optional[Position] = None  # Who gave this hint
-    
-    def check(self, game_state: GameState) -> List[Tuple[Position, Label, str]]:
-        deductions = []
-        
-        if self.count_type == CountConstraint.CountType.EQUAL:
-            # "equal number of criminals in columns B and D"
-            if len(self.areas) == 2:
-                area1, area2 = self.areas
-                count1 = self._count_in_area(game_state, area1, self.target_label)
-                count2 = self._count_in_area(game_state, area2, self.target_label)
-                
-                # If one area has more known, the other must have more unknowns
-                if count1 > count2:
-                    # Area2 needs more of target_label
-                    unknowns = self._get_unknowns_in_area(game_state, area2)
-                    if len(unknowns) == count1 - count2:
-                        for pos in unknowns:
-                            deductions.append((pos, self.target_label, f"Equal count constraint: {self.count_type.value}"))
-        
-        elif self.count_type == CountConstraint.CountType.MORE_THAN:
-            # "Column C has more innocents than any other column"
-            target_area = self.areas[0]
-            other_areas = self.areas[1:]
-            
-            target_count = self._count_in_area(game_state, target_area, self.target_label)
-            target_unknowns = self._get_unknowns_in_area(game_state, target_area)
-            
-            # Find max possible count in other areas
-            max_other_count = 0
-            for area in other_areas:
-                area_count = self._count_in_area(game_state, area, self.target_label)
-                area_unknowns = self._get_unknowns_in_area(game_state, area)
-                max_other_count = max(max_other_count, area_count + len(area_unknowns))
-            
-            # If target can't possibly have more, this is a contradiction
-            if target_count + len(target_unknowns) <= max_other_count:
-                # This would indicate an error in our understanding
-                pass
-        
-        elif self.count_type == CountConstraint.CountType.EXACTLY:
-            # "Bruce has exactly 2 innocent neighbors"
-            target_area = self.areas[0]
-            current_count = self._count_in_area(game_state, target_area, self.target_label)
-            unknowns = self._get_unknowns_in_area(game_state, target_area)
-            
-            if current_count + len(unknowns) == self.count:
-                # All unknowns must be the target label
-                for pos in unknowns:
-                    deductions.append((pos, self.target_label, f"Exactly {self.count} constraint"))
-        
-        elif self.count_type == CountConstraint.CountType.TOTAL:
-            # "There are 11 innocents in total"
-            current_count = 0
-            unknowns = []
-            for cell_name, suspect in game_state.cell_map.items():
-                if suspect.is_visible and suspect.label == self.target_label:
-                    current_count += 1
-                elif not suspect.is_visible:
-                    row, col = game_state._to_cell_coords(cell_name)
-                    unknowns.append(Position(row, col))
-            
-            if current_count + len(unknowns) == self.count:
-                # All unknowns must be the target label
-                for pos in unknowns:
-                    deductions.append((pos, self.target_label, f"Total count constraint: {self.count}"))
-        
-        return deductions
-    
-    def _count_in_area(self, game_state: GameState, area: List[Position], label: Label) -> int:
-        """Count characters with specific label in an area."""
-        count = 0
-        for pos in area:
-            for cell_name, suspect in game_state.cell_map.items():
+    def evaluate(self, game_state: GameState) -> Position:
+        """Return the position of this character."""
+        for cell_name, suspect in game_state.cell_map.items():
+            if suspect.name.lower() == self.name.lower():
                 row, col = game_state._to_cell_coords(cell_name)
-                if row == pos.row and col == pos.col:
-                    if suspect.is_visible and suspect.label == label:
-                        count += 1
-                    break
-        return count
+                return Position(row, col)
+        raise ValueError(f"Character '{self.name}' not found in game state")
     
-    def _get_unknowns_in_area(self, game_state: GameState, area: List[Position]) -> List[Position]:
-        """Get unknown characters in an area."""
-        unknowns = []
-        for pos in area:
-            for cell_name, suspect in game_state.cell_map.items():
-                row, col = game_state._to_cell_coords(cell_name)
-                if row == pos.row and col == pos.col:
-                    if not suspect.is_visible:
-                        unknowns.append(pos)
-                    break
-        return unknowns
+    def get_dependencies(self) -> Set[str]:
+        return {self.name}
+    
+    def __str__(self) -> str:
+        return f"Character({self.name})"
+
+@dataclass(frozen=True)
+class AllCharacters(Expression):
+    """All characters in the game."""
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        """Return positions of all characters."""
+        positions = set()
+        for cell_name in game_state.cell_map.keys():
+            row, col = game_state._to_cell_coords(cell_name)
+            positions.add(Position(row, col))
+        return positions
+    
+    def get_dependencies(self) -> Set[str]:
+        return set()  # Doesn't depend on specific characters
+    
+    def __str__(self) -> str:
+        return "AllCharacters()"
+
+@dataclass(frozen=True)
+class Literal(Expression):
+    """A literal value (number, string, etc.)."""
+    value: Any
+    
+    def evaluate(self, game_state: GameState) -> Any:
+        return self.value
+    
+    def get_dependencies(self) -> Set[str]:
+        return set()
+    
+    def __str__(self) -> str:
+        return f"Literal({self.value})"
 
 # ============================================================================
-# POSITIONAL CONSTRAINTS
+# SET OPERATIONS
 # ============================================================================
 
-@dataclass
-class PositionalConstraint(Constraint):
-    """Constraints about relative positions (above, below, left, right, between)."""
+@dataclass(frozen=True)
+class Filter(Expression):
+    """Filter a set of positions by a predicate."""
+    source: Expression  # Should evaluate to Set[Position]
+    predicate: Expression  # Should be a predicate expression
     
-    class Direction(Enum):
-        ABOVE = "above"
-        BELOW = "below"
-        LEFT = "left"
-        RIGHT = "right"
-        BETWEEN = "between"
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        positions = self.source.evaluate(game_state)
+        if not isinstance(positions, set):
+            raise ValueError(f"Filter source must evaluate to a set, got {type(positions)}")
+        
+        filtered = set()
+        for pos in positions:
+            if self.predicate.evaluate_at(game_state, pos):
+                filtered.add(pos)
+        return filtered
     
-    direction: Direction
-    source_position: Position  # Who gave this hint
-    target_positions: List[Position]  # Positions being described
-    target_label: Label
-    count: Optional[int] = None  # For "one of N" type constraints
-    occupation_filter: Optional[str] = None  # For "innocent cop above Susan"
+    def get_dependencies(self) -> Set[str]:
+        return self.source.get_dependencies() | self.predicate.get_dependencies()
     
-    def check(self, game_state: GameState) -> List[Tuple[Position, Label, str]]:
-        deductions = []
-        
-        if self.direction == PositionalConstraint.Direction.ABOVE:
-            # "There is one innocent cop above Susan"
-            if self.occupation_filter:
-                # Filter by occupation
-                matching_positions = []
-                for pos in self.target_positions:
-                    for cell_name, suspect in game_state.cell_map.items():
-                        row, col = game_state._to_cell_coords(cell_name)
-                        if row == pos.row and col == pos.col:
-                            if suspect.occupation.lower() == self.occupation_filter.lower():
-                                matching_positions.append(pos)
-                            break
-                
-                if len(matching_positions) == self.count:
-                    # All matching positions must be the target label
-                    for pos in matching_positions:
-                        # Check if this position is unknown
-                        for cell_name, suspect in game_state.cell_map.items():
-                            row, col = game_state._to_cell_coords(cell_name)
-                            if row == pos.row and col == pos.col and not suspect.is_visible:
-                                deductions.append((pos, self.target_label, f"Positional constraint: {self.direction.value}"))
-                                break
-        
-        elif self.direction == PositionalConstraint.Direction.BELOW:
-            # "Tyler is one of 2 criminals below Karen"
-            if self.count:
-                # Count how many of target_label are already known
-                known_count = 0
-                unknowns = []
-                for pos in self.target_positions:
-                    for cell_name, suspect in game_state.cell_map.items():
-                        row, col = game_state._to_cell_coords(cell_name)
-                        if row == pos.row and col == pos.col:
-                            if suspect.is_visible and suspect.label == self.target_label:
-                                known_count += 1
-                            elif not suspect.is_visible:
-                                unknowns.append(pos)
-                            break
-                
-                if known_count + len(unknowns) == self.count:
-                    # All unknowns must be the target label
-                    for pos in unknowns:
-                        deductions.append((pos, self.target_label, f"Positional constraint: {self.direction.value}"))
-                elif known_count + len(unknowns) > self.count:
-                    # We have more unknowns than needed, but we can still make deductions
-                    # If we need exactly N criminals and have M unknowns, then M-N must be innocent
-                    if known_count < self.count:
-                        # We still need some criminals
-                        needed_criminals = self.count - known_count
-                        if len(unknowns) == needed_criminals + 1:
-                            # We have exactly one more unknown than needed criminals
-                            # This means exactly one of the unknowns must be innocent
-                            # But we can't determine which one, so no deduction
-                            pass
-        
-        return deductions
+    def __str__(self) -> str:
+        return f"Filter({self.source}, {self.predicate})"
 
-# ============================================================================
-# NEIGHBOR CONSTRAINTS
-# ============================================================================
-
-@dataclass
-class NeighborConstraint(Constraint):
-    """Constraints about neighbors and connectivity."""
+@dataclass(frozen=True)
+class Neighbors(Expression):
+    """Get all neighbors (including diagonal) of a character or position."""
+    target: Expression  # Should evaluate to Position
     
-    class NeighborType(Enum):
-        NEIGHBOR = "neighbor"           # "Ollie's neighbor"
-        CONNECTED = "connected"         # "All innocents below Carl are connected"
-        COMMON_NEIGHBORS = "common"     # "Both innocents above Wanda are Isaac's neighbors"
-    
-    neighbor_type: NeighborType
-    source_position: Position  # Who gave this hint
-    target_positions: List[Position]  # Positions being described
-    target_label: Label
-    reference_position: Optional[Position] = None  # For "Isaac's neighbors"
-    
-    def check(self, game_state: GameState) -> List[Tuple[Position, Label, str]]:
-        deductions = []
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        pos = self.target.evaluate(game_state)
+        if not isinstance(pos, Position):
+            raise ValueError(f"Neighbors target must evaluate to Position, got {type(pos)}")
         
-        if self.neighbor_type == NeighborConstraint.NeighborType.NEIGHBOR:
-            # "The only criminal below Ollie is Ollie's neighbor"
-            # This is more complex and would need neighbor calculation
-            pass
-        
-        elif self.neighbor_type == NeighborConstraint.NeighborType.CONNECTED:
-            # "All innocents below Carl are connected"
-            # Check if we can determine connectivity
-            pass
-        
-        elif self.neighbor_type == NeighborConstraint.NeighborType.COMMON_NEIGHBORS:
-            # "Both innocents above Wanda are Isaac's neighbors"
-            if self.reference_position:
-                isaac_neighbors = self._get_neighbors(self.reference_position)
-                matching_positions = [pos for pos in self.target_positions
-                                    if pos in isaac_neighbors]
-                
-                if len(matching_positions) == 2:  # "Both"
-                    for pos in matching_positions:
-                        if game_state[pos].label == Label.UNKNOWN:
-                            deductions.append((pos, self.target_label, f"Common neighbor constraint"))
-        
-        return deductions
-    
-    def _get_neighbors(self, position: Position) -> List[Position]:
-        """Get all 8 neighbors (including diagonal) for a position."""
-        neighbors = []
+        neighbors = set()
         for dr in [-1, 0, 1]:
             for dc in [-1, 0, 1]:
                 if dr == 0 and dc == 0:
                     continue  # Skip self
-                new_pos = Position(position.row + dr, position.col + dc)
-                if 0 <= new_pos.row < 5 and 0 <= new_pos.col < 4:
-                    neighbors.append(new_pos)
+                new_row, new_col = pos.row + dr, pos.col + dc
+                if 1 <= new_row <= 5 and 0 <= new_col <= 3:  # Grid bounds: rows 1-5, cols 0-3
+                    neighbors.add(Position(new_row, new_col))
         return neighbors
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.target.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Neighbors({self.target})"
+
+@dataclass(frozen=True)
+class Above(Expression):
+    """Get all positions above a character (same column, lower row numbers)."""
+    target: Expression  # Should evaluate to Position
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        pos = self.target.evaluate(game_state)
+        if not isinstance(pos, Position):
+            raise ValueError(f"Above target must evaluate to Position, got {type(pos)}")
+        
+        above_positions = set()
+        for row in range(1, pos.row):  # All rows above (1 to pos.row-1)
+            above_positions.add(Position(row, pos.col))
+        return above_positions
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.target.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Above({self.target})"
+
+@dataclass(frozen=True)
+class Below(Expression):
+    """Get all positions below a character (same column, higher row numbers)."""
+    target: Expression  # Should evaluate to Position
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        pos = self.target.evaluate(game_state)
+        if not isinstance(pos, Position):
+            raise ValueError(f"Below target must evaluate to Position, got {type(pos)}")
+        
+        below_positions = set()
+        for row in range(pos.row + 1, 6):  # All rows below (pos.row+1 to 5)
+            below_positions.add(Position(row, pos.col))
+        return below_positions
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.target.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Below({self.target})"
+
+@dataclass(frozen=True)
+class LeftOf(Expression):
+    """Get all positions to the left of a character (same row, lower column numbers)."""
+    target: Expression  # Should evaluate to Position
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        pos = self.target.evaluate(game_state)
+        if not isinstance(pos, Position):
+            raise ValueError(f"LeftOf target must evaluate to Position, got {type(pos)}")
+        
+        left_positions = set()
+        for col in range(pos.col):  # All columns to the left (0 to pos.col-1)
+            left_positions.add(Position(pos.row, col))
+        return left_positions
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.target.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"LeftOf({self.target})"
+
+@dataclass(frozen=True)
+class RightOf(Expression):
+    """Get all positions to the right of a character (same row, higher column numbers)."""
+    target: Expression  # Should evaluate to Position
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        pos = self.target.evaluate(game_state)
+        if not isinstance(pos, Position):
+            raise ValueError(f"RightOf target must evaluate to Position, got {type(pos)}")
+        
+        right_positions = set()
+        for col in range(pos.col + 1, 4):  # All columns to the right (pos.col+1 to 3)
+            right_positions.add(Position(pos.row, col))
+        return right_positions
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.target.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"RightOf({self.target})"
+
+@dataclass(frozen=True)
+class EdgePositions(Expression):
+    """Get all positions on the edge of the grid."""
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        edge_positions = set()
+        # Top and bottom rows
+        for col in range(4):
+            edge_positions.add(Position(1, col))  # Top row (row 1)
+            edge_positions.add(Position(5, col))  # Bottom row (row 5)
+        # Left and right columns (excluding corners already added)
+        for row in range(2, 5):
+            edge_positions.add(Position(row, 0))  # Left column
+            edge_positions.add(Position(row, 3))  # Right column
+        return edge_positions
+    
+    def get_dependencies(self) -> Set[str]:
+        return set()
+    
+    def __str__(self) -> str:
+        return "EdgePositions()"
 
 # ============================================================================
-# RELATIVE CONSTRAINTS
+# PREDICATES
 # ============================================================================
 
-@dataclass
-class RelativeConstraint(Constraint):
-    """Constraints about relative comparisons between characters."""
+class Predicate(Expression):
+    """Base class for predicate expressions that can be evaluated at a position."""
     
-    class ComparisonType(Enum):
-        MORE_THAN = "more_than"     # "Bruce has more criminal neighbors than Vicky"
-        CLOSER_TO = "closer_to"     # "closer to Floyd than to Bruce"
+    @abstractmethod
+    def evaluate_at(self, game_state: GameState, position: Position) -> bool:
+        """Evaluate this predicate at a specific position."""
+        pass
     
-    comparison_type: ComparisonType
-    source_position: Position  # Who gave this hint
-    character1: Position
-    character2: Position
-    target_label: Label
-    metric: str  # "criminal neighbors", "distance", etc.
-    
-    def check(self, game_state: GameState) -> List[Tuple[Position, Label, str]]:
-        deductions = []
-        
-        if self.comparison_type == RelativeConstraint.ComparisonType.MORE_THAN:
-            # "Bruce has more criminal neighbors than Vicky"
-            # This would require calculating neighbor counts
-            pass
-        
-        elif self.comparison_type == RelativeConstraint.ComparisonType.CLOSER_TO:
-            # "The only innocent above me is closer to Floyd than to Bruce"
-            # This would require distance calculations
-            pass
-        
-        return deductions
+    def evaluate(self, game_state: GameState) -> bool:
+        """Default evaluation - not meaningful for predicates without position."""
+        raise NotImplementedError("Predicates must be evaluated at a specific position")
 
-# ============================================================================
-# SPECIFIC CHARACTER CONSTRAINTS
-# ============================================================================
-
-@dataclass
-class SpecificCharacterConstraint(Constraint):
-    """Constraints about specific characters being part of a group."""
+@dataclass(frozen=True)
+class HasLabel(Predicate):
+    """Check if a character at a position has a specific label."""
+    label: Label
     
-    specific_character: Position  # The specific character (e.g., Tyler)
-    target_positions: List[Position]  # All positions in the group
-    target_label: Label  # The label the character must have
-    count: int  # Total count in the group
-    source_position: Position  # Who gave this hint
-    
-    def check(self, game_state: GameState) -> List[Tuple[Position, Label, str]]:
-        deductions = []
-        
-        # Count how many of target_label are already known in the group
-        known_count = 0
-        unknowns = []
-        for pos in self.target_positions:
-            for cell_name, suspect in game_state.cell_map.items():
-                row, col = game_state._to_cell_coords(cell_name)
-                if row == pos.row and col == pos.col:
-                    if suspect.is_visible and suspect.label == self.target_label:
-                        known_count += 1
-                    elif not suspect.is_visible:
-                        unknowns.append(pos)
-                    break
-        
-        # If the specific character is unknown, they must be the target label
-        specific_unknown = False
+    def evaluate_at(self, game_state: GameState, position: Position) -> bool:
         for cell_name, suspect in game_state.cell_map.items():
             row, col = game_state._to_cell_coords(cell_name)
-            if row == self.specific_character.row and col == self.specific_character.col:
-                if not suspect.is_visible:
-                    specific_unknown = True
+            if row == position.row and col == position.col:
+                return suspect.is_visible and suspect.label == self.label
+        return False
+    
+    def get_dependencies(self) -> Set[str]:
+        return set()
+    
+    def __str__(self) -> str:
+        return f"HasLabel({self.label.value})"
+
+@dataclass(frozen=True)
+class HasProfession(Predicate):
+    """Check if a character at a position has a specific profession."""
+    profession: str
+    
+    def evaluate_at(self, game_state: GameState, position: Position) -> bool:
+        for cell_name, suspect in game_state.cell_map.items():
+            row, col = game_state._to_cell_coords(cell_name)
+            if row == position.row and col == position.col:
+                return suspect.occupation.lower() == self.profession.lower()
+        return False
+    
+    def get_dependencies(self) -> Set[str]:
+        return set()
+    
+    def __str__(self) -> str:
+        return f"HasProfession({self.profession})"
+
+@dataclass(frozen=True)
+class IsEdge(Predicate):
+    """Check if a position is on the edge of the grid."""
+    
+    def evaluate_at(self, game_state: GameState, position: Position) -> bool:
+        return (position.row == 1 or position.row == 5 or 
+                position.col == 0 or position.col == 3)
+    
+    def get_dependencies(self) -> Set[str]:
+        return set()
+    
+    def __str__(self) -> str:
+        return "IsEdge()"
+
+@dataclass(frozen=True)
+class IsUnknown(Predicate):
+    """Check if a character at a position has unknown label."""
+    
+    def evaluate_at(self, game_state: GameState, position: Position) -> bool:
+        for cell_name, suspect in game_state.cell_map.items():
+            row, col = game_state._to_cell_coords(cell_name)
+            if row == position.row and col == position.col:
+                return not suspect.is_visible
+        return False
+    
+    def get_dependencies(self) -> Set[str]:
+        return set()
+    
+    def __str__(self) -> str:
+        return "IsUnknown()"
+
+# ============================================================================
+# AGGREGATIONS
+# ============================================================================
+
+@dataclass(frozen=True)
+class Count(Expression):
+    """Count the number of elements in a set."""
+    source: Expression  # Should evaluate to Set[Position]
+    
+    def evaluate(self, game_state: GameState) -> int:
+        result = self.source.evaluate(game_state)
+        if isinstance(result, set):
+            return len(result)
+        elif isinstance(result, (list, tuple)):
+            return len(result)
+        else:
+            raise ValueError(f"Count source must evaluate to a collection, got {type(result)}")
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.source.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Count({self.source})"
+
+@dataclass(frozen=True)
+class Sum(Expression):
+    """Sum numeric values from a collection."""
+    source: Expression  # Should evaluate to collection of numbers
+    
+    def evaluate(self, game_state: GameState) -> Union[int, float]:
+        result = self.source.evaluate(game_state)
+        if isinstance(result, (set, list, tuple)):
+            return sum(result)
+        else:
+            raise ValueError(f"Sum source must evaluate to a collection, got {type(result)}")
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.source.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Sum({self.source})"
+
+@dataclass(frozen=True)
+class AreConnected(Expression):
+    """Check if all positions in a set are connected (adjacent to each other)."""
+    source: Expression  # Should evaluate to Set[Position]
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        positions = self.source.evaluate(game_state)
+        if not isinstance(positions, set):
+            raise ValueError(f"AreConnected source must evaluate to a set, got {type(positions)}")
+        
+        if len(positions) <= 1:
+            return True  # Single position or empty set is trivially connected
+        
+        # Use BFS to check connectivity
+        positions_list = list(positions)
+        visited = {positions_list[0]}
+        queue = [positions_list[0]]
+        
+        while queue:
+            current = queue.pop(0)
+            # Check all neighbors of current position
+            for dr in [-1, 0, 1]:
+                for dc in [-1, 0, 1]:
+                    if dr == 0 and dc == 0:
+                        continue
+                    neighbor = Position(current.row + dr, current.col + dc)
+                    if neighbor in positions and neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append(neighbor)
+        
+        return len(visited) == len(positions)
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.source.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"AreConnected({self.source})"
+
+# ============================================================================
+# COMPARISON OPERATIONS
+# ============================================================================
+
+@dataclass(frozen=True)
+class Equal(Expression):
+    """Check if two expressions evaluate to equal values."""
+    left: Expression
+    right: Expression
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        left_val = self.left.evaluate(game_state)
+        right_val = self.right.evaluate(game_state)
+        return left_val == right_val
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.left.get_dependencies() | self.right.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Equal({self.left}, {self.right})"
+
+@dataclass(frozen=True)
+class Greater(Expression):
+    """Check if left expression is greater than right expression."""
+    left: Expression
+    right: Expression
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        left_val = self.left.evaluate(game_state)
+        right_val = self.right.evaluate(game_state)
+        return left_val > right_val
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.left.get_dependencies() | self.right.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Greater({self.left}, {self.right})"
+
+@dataclass(frozen=True)
+class GreaterEqual(Expression):
+    """Check if left expression is greater than or equal to right expression."""
+    left: Expression
+    right: Expression
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        left_val = self.left.evaluate(game_state)
+        right_val = self.right.evaluate(game_state)
+        return left_val >= right_val
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.left.get_dependencies() | self.right.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"GreaterEqual({self.left}, {self.right})"
+
+@dataclass(frozen=True)
+class Less(Expression):
+    """Check if left expression is less than right expression."""
+    left: Expression
+    right: Expression
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        left_val = self.left.evaluate(game_state)
+        right_val = self.right.evaluate(game_state)
+        return left_val < right_val
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.left.get_dependencies() | self.right.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Less({self.left}, {self.right})"
+
+@dataclass(frozen=True)
+class LessEqual(Expression):
+    """Check if left expression is less than or equal to right expression."""
+    left: Expression
+    right: Expression
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        left_val = self.left.evaluate(game_state)
+        right_val = self.right.evaluate(game_state)
+        return left_val <= right_val
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.left.get_dependencies() | self.right.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"LessEqual({self.left}, {self.right})"
+
+# ============================================================================
+# LOGICAL OPERATIONS
+# ============================================================================
+
+@dataclass(frozen=True)
+class And(Expression):
+    """Logical AND of multiple expressions."""
+    expressions: Tuple[Expression, ...]
+    
+    def __init__(self, *expressions: Expression):
+        object.__setattr__(self, 'expressions', expressions)
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        return all(expr.evaluate(game_state) for expr in self.expressions)
+    
+    def get_dependencies(self) -> Set[str]:
+        deps = set()
+        for expr in self.expressions:
+            deps |= expr.get_dependencies()
+        return deps
+    
+    def __str__(self) -> str:
+        return f"And({', '.join(str(expr) for expr in self.expressions)})"
+
+@dataclass(frozen=True)
+class Or(Expression):
+    """Logical OR of multiple expressions."""
+    expressions: Tuple[Expression, ...]
+    
+    def __init__(self, *expressions: Expression):
+        object.__setattr__(self, 'expressions', expressions)
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        return any(expr.evaluate(game_state) for expr in self.expressions)
+    
+    def get_dependencies(self) -> Set[str]:
+        deps = set()
+        for expr in self.expressions:
+            deps |= expr.get_dependencies()
+        return deps
+    
+    def __str__(self) -> str:
+        return f"Or({', '.join(str(expr) for expr in self.expressions)})"
+
+@dataclass(frozen=True)
+class Not(Expression):
+    """Logical NOT of an expression."""
+    expression: Expression
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        return not self.expression.evaluate(game_state)
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.expression.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"Not({self.expression})"
+
+# ============================================================================
+# SET OPERATIONS (ADDITIONAL)
+# ============================================================================
+
+@dataclass(frozen=True)
+class Union(Expression):
+    """Union of multiple sets."""
+    expressions: Tuple[Expression, ...]
+    
+    def __init__(self, *expressions: Expression):
+        object.__setattr__(self, 'expressions', expressions)
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        result = set()
+        for expr in self.expressions:
+            expr_result = expr.evaluate(game_state)
+            if isinstance(expr_result, set):
+                result |= expr_result
+            else:
+                raise ValueError(f"Union operand must evaluate to a set, got {type(expr_result)}")
+        return result
+    
+    def get_dependencies(self) -> Set[str]:
+        deps = set()
+        for expr in self.expressions:
+            deps |= expr.get_dependencies()
+        return deps
+    
+    def __str__(self) -> str:
+        return f"Union({', '.join(str(expr) for expr in self.expressions)})"
+
+@dataclass(frozen=True)
+class Intersection(Expression):
+    """Intersection of multiple sets."""
+    expressions: Tuple[Expression, ...]
+    
+    def __init__(self, *expressions: Expression):
+        object.__setattr__(self, 'expressions', expressions)
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        if not self.expressions:
+            return set()
+        
+        result = self.expressions[0].evaluate(game_state)
+        if not isinstance(result, set):
+            raise ValueError(f"Intersection operand must evaluate to a set, got {type(result)}")
+        
+        for expr in self.expressions[1:]:
+            expr_result = expr.evaluate(game_state)
+            if isinstance(expr_result, set):
+                result &= expr_result
+            else:
+                raise ValueError(f"Intersection operand must evaluate to a set, got {type(expr_result)}")
+        return result
+    
+    def get_dependencies(self) -> Set[str]:
+        deps = set()
+        for expr in self.expressions:
+            deps |= expr.get_dependencies()
+        return deps
+    
+    def __str__(self) -> str:
+        return f"Intersection({', '.join(str(expr) for expr in self.expressions)})"
+
+# ============================================================================
+# CONSTRAINT EVALUATION ENGINE
+# ============================================================================
+
+class ConstraintEngine:
+    """Engine for evaluating constraints and finding deductions."""
+    
+    def __init__(self):
+        self.constraints: List[Constraint] = []
+    
+    def add_constraint(self, constraint: Constraint):
+        """Add a constraint to the engine."""
+        self.constraints.append(constraint)
+    
+    def add_constraints(self, constraints: List[Constraint]):
+        """Add multiple constraints to the engine."""
+        self.constraints.extend(constraints)
+    
+    def clear_constraints(self):
+        """Clear all constraints."""
+        self.constraints.clear()
+    
+    def evaluate_all(self, game_state: GameState) -> Dict[str, bool]:
+        """Evaluate all constraints and return their satisfaction status."""
+        results = {}
+        for i, constraint in enumerate(self.constraints):
+            try:
+                results[f"constraint_{i}"] = constraint.evaluate(game_state)
+            except Exception as e:
+                results[f"constraint_{i}"] = False
+                print(f"Error evaluating constraint {i}: {e}")
+        return results
+    
+    def find_violations(self, game_state: GameState) -> List[Tuple[int, Constraint, str]]:
+        """Find constraints that are violated in the current game state."""
+        violations = []
+        for i, constraint in enumerate(self.constraints):
+            try:
+                if not constraint.evaluate(game_state):
+                    violations.append((i, constraint, "Constraint not satisfied"))
+            except Exception as e:
+                violations.append((i, constraint, f"Evaluation error: {e}"))
+        return violations
+    
+    def test_assignment(self, game_state: GameState, character_name: str, label: Label) -> bool:
+        """Test if assigning a label to a character violates any constraints."""
+        # Create a test game state
+        test_state = game_state.copy()
+        
+        # Find the character and assign the label
+        for cell_name, suspect in test_state.cell_map.items():
+            if suspect.name.lower() == character_name.lower():
+                test_state._set_label(cell_name, label)
                 break
+        else:
+            raise ValueError(f"Character '{character_name}' not found")
         
-        if specific_unknown:
-            # The specific character must be the target label
-            deductions.append((self.specific_character, self.target_label, 
-                             f"Specific character constraint: must be {self.target_label.value}"))
+        # Check if any constraints are violated
+        violations = self.find_violations(test_state)
+        return len(violations) == 0
+    
+    def find_forced_assignments(self, game_state: GameState) -> List[Tuple[str, Label, str]]:
+        """Find character assignments that are forced by the constraints."""
+        forced = []
         
-        return deductions
+        # Get all unknown characters
+        unknown_characters = []
+        for cell_name, suspect in game_state.cell_map.items():
+            if not suspect.is_visible:
+                unknown_characters.append(suspect.name)
+        
+        # Test each unknown character with both labels
+        for char_name in unknown_characters:
+            innocent_valid = self.test_assignment(game_state, char_name, Label.INNOCENT)
+            criminal_valid = self.test_assignment(game_state, char_name, Label.CRIMINAL)
+            
+            if innocent_valid and not criminal_valid:
+                forced.append((char_name, Label.INNOCENT, "Only innocent assignment is valid"))
+            elif criminal_valid and not innocent_valid:
+                forced.append((char_name, Label.CRIMINAL, "Only criminal assignment is valid"))
+            elif not innocent_valid and not criminal_valid:
+                forced.append((char_name, None, "No valid assignment - contradiction detected"))
+        
+        return forced
 
 # ============================================================================
-# EXISTENCE CONSTRAINTS
+# CONSTRAINT BUILDER HELPERS
 # ============================================================================
 
-@dataclass
-class ExistenceConstraint(Constraint):
-    """Constraints about existence and uniqueness."""
+class ConstraintBuilder:
+    """Helper class for building common constraint patterns."""
     
-    class ExistenceType(Enum):
-        ONLY = "only"           # "The only criminal below Ollie"
-        BOTH = "both"           # "Both innocents above Wanda"
-        ALL = "all"            # "All innocents in row 3"
+    @staticmethod
+    def neighbor_count_comparison(char1_name: str, char2_name: str, label: Label, comparison: str) -> Constraint:
+        """Build constraint like 'Jose has more innocent neighbors than Ethan'."""
+        char1_neighbors = Count(Filter(Neighbors(Character(char1_name)), HasLabel(label)))
+        char2_neighbors = Count(Filter(Neighbors(Character(char2_name)), HasLabel(label)))
+        
+        if comparison.lower() == "more":
+            expr = Greater(char1_neighbors, char2_neighbors)
+        elif comparison.lower() == "equal":
+            expr = Equal(char1_neighbors, char2_neighbors)
+        elif comparison.lower() == "less":
+            expr = Less(char1_neighbors, char2_neighbors)
+        else:
+            raise ValueError(f"Unknown comparison: {comparison}")
+        
+        return Constraint(expr, f"{char1_name} has {comparison} {label.value} neighbors than {char2_name}")
     
-    existence_type: ExistenceType
-    source_position: Position  # Who gave this hint
-    target_positions: List[Position]  # Positions being described
-    target_label: Label
-    additional_condition: Optional[str] = None  # "are Isaac's neighbors"
+    @staticmethod
+    def exact_count_in_area(area_expr: Expression, label: Label, count: int) -> Constraint:
+        """Build constraint like 'exactly N innocents in area'."""
+        count_expr = Count(Filter(area_expr, HasLabel(label)))
+        expr = Equal(count_expr, Literal(count))
+        return Constraint(expr, f"Exactly {count} {label.value}s in area")
     
-    def check(self, game_state: GameState) -> List[Tuple[Position, Label, str]]:
-        deductions = []
+    @staticmethod
+    def connectivity_constraint(area_expr: Expression, label: Label) -> Constraint:
+        """Build constraint like 'all innocents in area are connected'."""
+        filtered_area = Filter(area_expr, HasLabel(label))
+        expr = AreConnected(filtered_area)
+        return Constraint(expr, f"All {label.value}s in area are connected")
+    
+    @staticmethod
+    def edge_constraint(area_expr: Expression, label: Label, count: int) -> Constraint:
+        """Build constraint like 'N of the innocents in area are on edges'."""
+        innocents_in_area = Filter(area_expr, HasLabel(label))
+        innocents_on_edge = Intersection(innocents_in_area, EdgePositions())
+        count_expr = Count(innocents_on_edge)
+        expr = Equal(count_expr, Literal(count))
+        return Constraint(expr, f"{count} of the {label.value}s in area are on edges")
+    
+    @staticmethod
+    def total_profession_count(profession: str, label: Label, count: int) -> Constraint:
+        """Build constraint like 'there are 4 innocent cops and sleuths'."""
+        if isinstance(profession, str):
+            professions = [profession]
+        else:
+            professions = profession
         
-        if self.existence_type == ExistenceConstraint.ExistenceType.ONLY:
-            # "The only criminal below Ollie"
-            # If we know there's exactly one criminal below, and we find one, others must be innocent
-            pass
+        # Filter all characters by profession and label
+        profession_filters = []
+        for prof in professions:
+            profession_filters.append(Filter(AllCharacters(), 
+                                           And(HasProfession(prof), HasLabel(label))))
         
-        elif self.existence_type == ExistenceConstraint.ExistenceType.BOTH:
-            # "Both innocents above Wanda"
-            # If we know there are exactly two, and we find two, others must be criminal
-            pass
+        if len(profession_filters) == 1:
+            filtered_chars = profession_filters[0]
+        else:
+            filtered_chars = Union(*profession_filters)
         
-        elif self.existence_type == ExistenceConstraint.ExistenceType.ALL:
-            # "All innocents in row 3"
-            # If we know all innocents in row 3 are something, we can deduce others
-            pass
-        
-        return deductions
+        count_expr = Count(filtered_chars)
+        expr = Equal(count_expr, Literal(count))
+        return Constraint(expr, f"Total of {count} {label.value} {'/'.join(professions)}")
+
+# ============================================================================
+# CONVENIENCE FUNCTIONS
+# ============================================================================
+
+def neighbors_of(character_name: str) -> Expression:
+    """Convenience function to get neighbors of a character."""
+    return Neighbors(Character(character_name))
+
+def above(character_name: str) -> Expression:
+    """Convenience function to get positions above a character."""
+    return Above(Character(character_name))
+
+def below(character_name: str) -> Expression:
+    """Convenience function to get positions below a character."""
+    return Below(Character(character_name))
+
+def left_of(character_name: str) -> Expression:
+    """Convenience function to get positions left of a character."""
+    return LeftOf(Character(character_name))
+
+def right_of(character_name: str) -> Expression:
+    """Convenience function to get positions right of a character."""
+    return RightOf(Character(character_name))
+
+def innocents(area_expr: Expression) -> Expression:
+    """Convenience function to filter for innocents in an area."""
+    return Filter(area_expr, HasLabel(Label.INNOCENT))
+
+def criminals(area_expr: Expression) -> Expression:
+    """Convenience function to filter for criminals in an area."""
+    return Filter(area_expr, HasLabel(Label.CRIMINAL))
+
+def count_innocents(area_expr: Expression) -> Expression:
+    """Convenience function to count innocents in an area."""
+    return Count(innocents(area_expr))
+
+def count_criminals(area_expr: Expression) -> Expression:
+    """Convenience function to count criminals in an area."""
+    return Count(criminals(area_expr))
+
