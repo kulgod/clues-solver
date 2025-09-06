@@ -1,0 +1,132 @@
+{
+    "characters": [
+      {
+        "hint_id": "A1",
+        "expressions": []
+      },
+      {
+        "hint_id": "B1",
+        "hint": "Jose has more innocent neighbors than Ethan",
+        "expressions": [
+            "Greater(Count(neighbors_of(\"Jose\")), Count(neighbors_of(\"Jose\")))"
+        ]
+      },
+      {
+        "hint_id": "C1",
+        "hint": "I'm actually quite enjoying my time without a phone...",
+        "expressions": []
+      },
+      {
+        "hint_id": "D1",
+        "hint": "2 of the 4 innocents neighboring Cheryl are on the edges",
+        "expressions": [
+            "Equal(Count(Filter(Filter(neighbors_of(\"Cheryl\"), HasLabel(Label.INNOCENT)), IsEdge())), Literal(2))",
+            "Equal(Count(Filter(neighbors_of(\"Cheryl\"), HasLabel(Label.INNOCENT))), Literal(4))"
+        ]
+      },
+      {
+        "hint_id": "A2",
+        "hint": "There are a total of 4 innocent cops and sleuths",
+        "expressions": [
+            "Equal(Count(Union(Filter(AllCharacters(), HasProfession(\"cop\")), Filter(AllCharacters(), HasProfession(\"sleuth\")))), Literal(4))"
+        ]
+      },
+      {
+        "hint_id": "B2",
+        "hint": "I'm sure you'll catch the charger thief soon!",
+        "expressions": []
+      },
+      {
+        "hint_id": "C2",
+        "hint": "There's an odd number of criminals on the edges",
+        "expressions": [
+            "Equal(Count(Filter(EdgePositions(), HasLabel(Label.CRIMINAL))), Literal(4))"
+        ]
+      },
+      {
+        "hint_id": "D2",
+        "hint": "Both innocents to the left of Ethan are connected",
+        "expressions": [
+            "AreConnected(Filter(left_of(\"Ethan\"), HasLabel(Label.INNOCENT)))",
+            "Equal(Count(Filter(left_of(\"Ethan\"), HasLabel(Label.INNOCENT))), Literal(2))"
+        ]
+      },
+      {
+        "hint_id": "A3",
+        "hint": "I saw someone charging a phone in a cafeteria! Could it be...",
+        "expressions": []
+      },
+      {
+        "hint_id": "B3",
+        "hint": "Our boss has my charger as well... I don't think I'll ever see it again.",
+        "expressions": []
+      },
+      {
+        "hint_id": "C3",
+        "hint": "Cheryl and Zara have an equal number of criminal neighbors",
+        "expressions": [
+            "Equal(Count(Filter(neighbors_of(\"Cheryl\"), HasLabel(Label.CRIMINAL))), Count(Filter(neighbors_of(\"Zara\"), HasLabel(Label.CRIMINAL))))"
+        ]
+      },
+      {
+        "hint_id": "D3",
+        "hint": "Both criminals below Ethan are connected",
+        "expressions": [
+            "AreConnected(Filter(below(\"Ethan\"), HasLabel(Label.CRIMINAL)))",
+            "Equal(Count(Filter(below(\"Ethan\"), HasLabel(Label.CRIMINAL))), Literal(2))"
+        ]
+      },
+      {
+        "hint_id": "A4",
+        "hint": "No charger, no phone. Finally I get some time to write my next song...",
+        "expressions": []
+      },
+      {
+        "hint_id": "B4",
+        "hint": "Vince and Isaac have an equal number of criminal neighbors",
+        "expressions": [
+            "Equal(Count(Filter(neighbors_of(\"Vince\"), HasLabel(Label.CRIMINAL))), Count(Filter(neighbors_of(\"Isaac\"), HasLabel(Label.CRIMINAL))))"
+        ]
+      },
+      {
+        "hint_id": "C4",
+        "hint": "Vince is one of 4 innocents in column A",
+        "expressions": [
+            "Equal(Count(Filter(Column(\"A\"), HasLabel(Label.INNOCENT))), Literal(4))",
+            "CharacterHasLabel(Literal(\"Vince\"), Label.INNOCENT)"
+        ]
+      },
+      {
+        "hint_id": "D4",
+        "hint": "There's an odd number of criminals in row 1",
+        "expressions": [
+            "IsOdd(Count(Filter(Row(1), HasLabel(Label.CRIMINAL))))"
+        ]
+      },
+      {
+        "hint_id": "A5",
+        "hint": "Even the criminals are starting to turn against the charger thief!",
+        "expressions": []
+      },
+      {
+        "hint_id": "B5",
+        "hint": "I've started sending letters to friends and family. It's fun!",
+        "expressions": []
+      },
+      {
+        "hint_id": "C5",
+        "hint": "4 of the 6 innocents neighboring Gabe are on the edges",
+        "expressions": [
+            "Equal(Count(Filter(neighbors_of(\"Gabe\"), HasLabel(Label.INNOCENT))), Literal(6))",
+            "Equal(Count(Filter(Union(neighbors_of(\"Gabe\"), EdgePositions()), HasLabel(Label.INNOCENT))), Literal(4))"
+        ]
+      },
+      {
+        "hint_id": "D5",
+        "hint": "Frank and Ethan have 6 innocent neighbors in total",
+        "expressions": [
+            "Equal(Count(innocents(Union(neighbors_of(\"Frank\"), neighbors_of(\"Ethan\")))))"
+        ]
+      }
+    ]
+  }
