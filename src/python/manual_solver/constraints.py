@@ -22,6 +22,18 @@ class Expression(ABC):
         """Evaluate this expression against the game state."""
         pass
     
+    def __and__(self, other: 'Expression') -> 'Expression':
+        """Support & operator for logical AND."""
+        return And(self, other)
+    
+    def __or__(self, other: 'Expression') -> 'Expression':
+        """Support | operator for logical OR."""
+        return Or(self, other)
+    
+    def __invert__(self) -> 'Expression':
+        """Support ~ operator for logical NOT."""
+        return Not(self)
+    
     def __str__(self) -> str:
         """String representation for debugging."""
         return f"{self.__class__.__name__}(...)"
@@ -52,7 +64,7 @@ class Constraint:
         return f"Constraint({self.expression}) - {self.description}"
 
 # ============================================================================
-# PRIMITIVE EXPRESSIONS
+# PRIMITIVES
 # ============================================================================
 
 @dataclass(frozen=True)
@@ -79,7 +91,7 @@ class CharacterHasLabel(Expression):
     
     def evaluate(self, game_state: GameState) -> bool:
         """Return True if the character has the specified label."""
-        for cell_name, suspect in game_state.cell_map.items():
+        for _, suspect in game_state.cell_map.items():
             if suspect.name.lower() == self.character_name.lower():
                 return suspect.is_visible and suspect.label == self.label
         return False  # Character not found or not visible
@@ -114,28 +126,8 @@ class Literal(Expression):
         return f"Literal({self.value})"
 
 # ============================================================================
-# SET OPERATIONS
+# SET GENERATORS
 # ============================================================================
-
-@dataclass(frozen=True)
-class Filter(Expression):
-    """Filter a set of positions by a predicate."""
-    source: Expression  # Should evaluate to Set[Position]
-    predicate: Expression  # Should be a predicate expression
-    
-    def evaluate(self, game_state: GameState) -> Set[Position]:
-        positions = self.source.evaluate(game_state)
-        if not isinstance(positions, set):
-            raise ValueError(f"Filter source must evaluate to a set, got {type(positions)}")
-        
-        filtered = set()
-        for pos in positions:
-            if self.predicate.evaluate_at(game_state, pos):
-                filtered.add(pos)
-        return filtered
-    
-    def __str__(self) -> str:
-        return f"Filter({self.source}, {self.predicate})"
 
 @dataclass(frozen=True)
 class Neighbors(Expression):
@@ -289,6 +281,83 @@ class EdgePositions(Expression):
         return "EdgePositions()"
 
 # ============================================================================
+# SET OPERATIONS
+# ============================================================================
+
+@dataclass(frozen=True)
+class Union(Expression):
+    """Union of multiple sets."""
+    expressions: Tuple[Expression, ...]
+    
+    def __init__(self, *expressions: Expression):
+        object.__setattr__(self, 'expressions', expressions)
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        result = set()
+        for expr in self.expressions:
+            expr_result = expr.evaluate(game_state)
+            if isinstance(expr_result, set):
+                result |= expr_result
+            else:
+                raise ValueError(f"Union operand must evaluate to a set, got {type(expr_result)}")
+        return result
+        
+    def __str__(self) -> str:
+        return f"Union({', '.join(str(expr) for expr in self.expressions)})"
+
+@dataclass(frozen=True)
+class Intersection(Expression):
+    """Intersection of multiple sets."""
+    expressions: Tuple[Expression, ...]
+    
+    def __init__(self, *expressions: Expression):
+        object.__setattr__(self, 'expressions', expressions)
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        if not self.expressions:
+            return set()
+        
+        result = self.expressions[0].evaluate(game_state)
+        if not isinstance(result, set):
+            raise ValueError(f"Intersection operand must evaluate to a set, got {type(result)}")
+        
+        for expr in self.expressions[1:]:
+            expr_result = expr.evaluate(game_state)
+            if isinstance(expr_result, set):
+                result &= expr_result
+            else:
+                raise ValueError(f"Intersection operand must evaluate to a set, got {type(expr_result)}")
+        return result
+    
+    def __str__(self) -> str:
+        return f"Intersection({', '.join(str(expr) for expr in self.expressions)})"
+
+# ============================================================================
+# Filter
+# ============================================================================
+
+@dataclass(frozen=True)
+class Filter(Expression):
+    """Filter a set of positions by a predicate."""
+    source: Expression  # Should evaluate to Set[Position]
+    predicate: Expression  # Should be a predicate expression
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        positions = self.source.evaluate(game_state)
+        if not isinstance(positions, set):
+            raise ValueError(f"Filter source must evaluate to a set, got {type(positions)}")
+        
+        filtered = set()
+        for pos in positions:
+            if self.predicate.evaluate_at(game_state, pos):
+                filtered.add(pos)
+        return filtered
+    
+    def __str__(self) -> str:
+        return f"Filter({self.source}, {self.predicate})"
+
+
+# ============================================================================
 # PREDICATES
 # ============================================================================
 
@@ -303,6 +372,18 @@ class Predicate(Expression):
     def evaluate(self, game_state: GameState) -> bool:
         """Default evaluation - not meaningful for predicates without position."""
         raise NotImplementedError("Predicates must be evaluated at a specific position")
+    
+    def __and__(self, other: 'Predicate') -> 'Predicate':
+        """Support & operator for predicate AND combinations."""
+        return PredicateAnd(self, other)
+    
+    def __or__(self, other: 'Predicate') -> 'Predicate':
+        """Support | operator for predicate OR combinations."""
+        return PredicateOr(self, other)
+    
+    def __invert__(self) -> 'Predicate':
+        """Support ~ operator for predicate NOT."""
+        return PredicateNot(self)
 
 @dataclass(frozen=True)
 class HasLabel(Predicate):
@@ -358,6 +439,47 @@ class IsUnknown(Predicate):
     
     def __str__(self) -> str:
         return "IsUnknown()"
+
+# ============================================================================
+# PREDICATE LOGICAL OPERATORS
+# ============================================================================
+
+@dataclass(frozen=True)
+class PredicateAnd(Predicate):
+    """Logical AND combination of two predicates."""
+    left: Predicate
+    right: Predicate
+    
+    def evaluate_at(self, game_state: GameState, position: Position) -> bool:
+        return (self.left.evaluate_at(game_state, position) and 
+                self.right.evaluate_at(game_state, position))
+    
+    def __str__(self) -> str:
+        return f"({self.left} & {self.right})"
+
+@dataclass(frozen=True)
+class PredicateOr(Predicate):
+    """Logical OR combination of two predicates."""
+    left: Predicate
+    right: Predicate
+    
+    def evaluate_at(self, game_state: GameState, position: Position) -> bool:
+        return (self.left.evaluate_at(game_state, position) or 
+                self.right.evaluate_at(game_state, position))
+    
+    def __str__(self) -> str:
+        return f"({self.left} | {self.right})"
+
+@dataclass(frozen=True)
+class PredicateNot(Predicate):
+    """Logical NOT of a predicate."""
+    predicate: Predicate
+    
+    def evaluate_at(self, game_state: GameState, position: Position) -> bool:
+        return not self.predicate.evaluate_at(game_state, position)
+    
+    def __str__(self) -> str:
+        return f"~{self.predicate}"
 
 # ============================================================================
 # AGGREGATIONS
@@ -431,7 +553,7 @@ class AreConnected(Expression):
         return f"AreConnected({self.source})"
 
 # ============================================================================
-# COMPARISON OPERATIONS
+# NUMERICAL EXPRESSIONS
 # ============================================================================
 
 @dataclass(frozen=True)
@@ -569,57 +691,6 @@ class Not(Expression):
     def __str__(self) -> str:
         return f"Not({self.expression})"
 
-# ============================================================================
-# SET OPERATIONS (ADDITIONAL)
-# ============================================================================
-
-@dataclass(frozen=True)
-class Union(Expression):
-    """Union of multiple sets."""
-    expressions: Tuple[Expression, ...]
-    
-    def __init__(self, *expressions: Expression):
-        object.__setattr__(self, 'expressions', expressions)
-    
-    def evaluate(self, game_state: GameState) -> Set[Position]:
-        result = set()
-        for expr in self.expressions:
-            expr_result = expr.evaluate(game_state)
-            if isinstance(expr_result, set):
-                result |= expr_result
-            else:
-                raise ValueError(f"Union operand must evaluate to a set, got {type(expr_result)}")
-        return result
-        
-    def __str__(self) -> str:
-        return f"Union({', '.join(str(expr) for expr in self.expressions)})"
-
-@dataclass(frozen=True)
-class Intersection(Expression):
-    """Intersection of multiple sets."""
-    expressions: Tuple[Expression, ...]
-    
-    def __init__(self, *expressions: Expression):
-        object.__setattr__(self, 'expressions', expressions)
-    
-    def evaluate(self, game_state: GameState) -> Set[Position]:
-        if not self.expressions:
-            return set()
-        
-        result = self.expressions[0].evaluate(game_state)
-        if not isinstance(result, set):
-            raise ValueError(f"Intersection operand must evaluate to a set, got {type(result)}")
-        
-        for expr in self.expressions[1:]:
-            expr_result = expr.evaluate(game_state)
-            if isinstance(expr_result, set):
-                result &= expr_result
-            else:
-                raise ValueError(f"Intersection operand must evaluate to a set, got {type(expr_result)}")
-        return result
-    
-    def __str__(self) -> str:
-        return f"Intersection({', '.join(str(expr) for expr in self.expressions)})"
 
 # ============================================================================
 # CONVENIENCE FUNCTIONS

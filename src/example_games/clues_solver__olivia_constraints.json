@@ -125,7 +125,7 @@
         "hint_id": "D5",
         "hint": "Frank and Ethan have 6 innocent neighbors in total",
         "expressions": [
-            "Equal(Count(innocents(Union(neighbors_of(\"Frank\"), neighbors_of(\"Ethan\")))))"
+            "Equal(count_innocents(Union(neighbors_of(\"Frank\"), neighbors_of(\"Ethan\"))))"
         ]
       }
     ]

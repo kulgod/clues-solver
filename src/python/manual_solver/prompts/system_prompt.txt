@@ -41,8 +41,8 @@ Expected Output:
     {
         "hint_id": "3",
         "expressions": [
-            "Equal(Count(Filter(Filter(neighbors_of("Cheryl"), HasLabel(Label.INNOCENT)), IsEdge())), Literal(2))",
-            "Equal(Count(Filter(neighbors_of("Cheryl"), HasLabel(Label.INNOCENT))), Literal(4))"
+            "Equal(Count(Filter(innocents(neighbors_of("Cheryl")), IsEdge())), Literal(2))",
+            "Equal(count_innocents(neighbors_of("Cheryl")), Literal(4))"
         ]
     }
 ]
@@ -123,12 +123,6 @@ Get all neighboring positions (including diagonals) of a character or position
 ## Set operations 
 Apply functions to a set of positions to produce a new set.
 
-Filter()
-Filter a set of positions by a predicate
-- Params: Source set, predicate expression
-- Returns: Filtered set of positions
-- Usage: Filter(AllCharacters(), HasLabel(Label.INNOCENT))
-
 Intersection()
 Intersection of multiple sets
 - Params: Multiple set expressions
@@ -140,6 +134,43 @@ Union of multiple sets
 - Params: Multiple set expressions
 - Returns: Set union
 - Usage: Union(set1, set2, set3)
+
+## Filtering 
+
+### Filter expression
+Filter()
+Filter a set of positions by a predicate
+- Params: Source set, predicate expression
+- Returns: Filtered set of positions
+- Usage: Filter(AllCharacters(), HasLabel(Label.INNOCENT))
+
+### Filter predicates
+Evaluate truth of a condition on a single position or a set of positions. Predicates can only be supplied
+as input to the Filter expression. 
+
+HasLabel()
+Check if a character at a position has a specific label
+- Params: Position, Label (INNOCENT or CRIMINAL)
+- Returns: Boolean predicate
+- Usage: HasLabel(Label.INNOCENT)
+
+HasProfession()
+Check if a character at a position has a specific profession
+- Params: Profession
+- Returns: Boolean predicate
+- Usage: HasProfession("detective")
+
+IsEdge()
+Check if a position is on the edge of the grid
+- Params: None
+- Returns: Boolean predicate
+- Usage: IsEdge()
+
+IsUnknown()
+Check if a character at a position has unknown label
+- Params: None
+- Returns: Boolean predicate
+- Usage: IsUnknown()
 
 ## Logical operators 
 These functions support logical combinations of expressions, evaluating to a boolean.
@@ -176,34 +207,6 @@ Sum numeric values from a collection
 - Params: Collection expression
 - Returns: Numeric sum
 - Usage: Sum(numeric_collection)
-
-## Predicates
-Evaluate truth of a condition on a single position or a set of positions. Can be supplied to Filter.
-
-HasLabel()
-Check if a character at a position has a specific label
-- Params: Position, Label (INNOCENT or CRIMINAL)
-- Returns: Boolean predicate
-- Usage: HasLabel(Label.INNOCENT)
-
-HasProfession()
-Check if a character at a position has a specific profession
-- Params: Profession
-- Returns: Boolean predicate
-- Usage: HasProfession("detective")
-
-IsEdge()
-Check if a position is on the edge of the grid
-- Params: None
-- Returns: Boolean predicate
-- Usage: IsEdge()
-
-IsUnknown()
-Check if a character at a position has unknown label
-- Params: None
-- Returns: Boolean predicate
-- Usage: IsUnknown()
-
 
 ## Boolean evaluations
 Compare the results of multiple expressions.
@@ -316,8 +319,3 @@ Hint: "Vince and Isaac have an equal number of criminal neighbors"
 Constraint: Equal(count_criminals(neighbors_of("Vince")), count_criminals(neighbors_of("Isaac")))
 
 </reference>
-<hints>
-{% for hint in hints %}
-Hint {{ loop.index }}: "{{ hint }}",
-{% endfor %}
-</hints>
