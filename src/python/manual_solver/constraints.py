@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List, Set, Dict, Tuple, Optional, Union, Any
+from typing import List, Set, Dict, Tuple, Union, Any
 from dataclasses import dataclass
-from enum import Enum
 
 from src.python.manual_solver.game_state import GameState, Suspect, Label
 
@@ -38,6 +37,12 @@ class Constraint:
     def __init__(self, expression: Expression, description: str = ""):
         self.expression = expression
         self.description = description
+
+    @classmethod
+    def from_string(cls, description: str) -> "Constraint":
+        """Create a constraint from a string."""
+        expr = eval(description)
+        return cls(expr, description)
     
     def evaluate(self, game_state: GameState) -> bool:
         """Check if this constraint is satisfied."""
@@ -866,3 +871,8 @@ def count_criminals(area_expr: Expression) -> Expression:
     """Convenience function to count criminals in an area."""
     return Count(criminals(area_expr))
 
+
+if __name__ == "__main__":
+    description = "Equal(Count(Filter(Filter(AllCharacters(), Or(HasProfession(\"cop\"), HasProfession(\"sleuth\"))), HasLabel(Label.INNOCENT))), Literal(4))"
+    res = Constraint.from_string(description)
+    print(res)

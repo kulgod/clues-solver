@@ -14,6 +14,8 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'manual_solver'))
 
 from src.python.manual_solver.game_state import GameState
+from src.python.manual_solver.clues_solver import CluesSolver
+from src.python.manual_solver.constraint_parser import ConstraintParser
 
 app = Flask(__name__)
 CORS(app)  # Allow requests from Chrome extension
@@ -57,11 +59,13 @@ def analyze_game():
             }), 400
         
         characters = data['characters']
+        api_key = data['api_key']
         print(f"Received {len(characters)} characters")
         
         # Create GameState from API data
         try:
             game_state = GameState.from_api_data(characters)
+            parser = ConstraintParser(api_key)
             
             # Render grid for debugging (console output only)
             grid_text = game_state.render_as_text()
