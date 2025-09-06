@@ -521,6 +521,34 @@ class LessEqual(Expression):
     def __str__(self) -> str:
         return f"LessEqual({self.left}, {self.right})"
 
+@dataclass(frozen=True)
+class IsOdd(Expression):
+    """Check if a number is odd."""
+    number: Expression
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        return self.number.evaluate(game_state) % 2 == 1
+    
+    def get_dependencies(self) -> Set[str]:
+        return self.number.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"IsOdd({self.number})"
+
+@dataclass(frozen=True)
+class IsEven(Expression):
+    """Check if a number is even."""
+    number: Expression
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        return self.number.evaluate(game_state) % 2 == 0
+
+    def get_dependencies(self) -> Set[str]:
+        return self.number.get_dependencies()
+    
+    def __str__(self) -> str:
+        return f"IsEven({self.number})"
+
 # ============================================================================
 # LOGICAL OPERATIONS
 # ============================================================================

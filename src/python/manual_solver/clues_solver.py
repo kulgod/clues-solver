@@ -2,7 +2,6 @@ from typing import List, Dict, Tuple, Optional, Set
 
 from src.python.manual_solver.game_state import GameState, Suspect, Label
 from src.python.manual_solver.constraints import Constraint, Position
-from src.python.manual_solver.constraint_parser import ConstraintParser
 
 class CluesMove:
     """Represents a move in the Clues game."""
@@ -21,8 +20,6 @@ class CluesSolver:
     def parse_constraints(game_state: GameState) -> List[Constraint]:
         """Parse the constraints from the game state."""
         constraints = []
-        parser = ConstraintParser()
-        
         # Build name to position mapping
         name_to_position = {}
         for cell_name, suspect in game_state.cell_map.items():

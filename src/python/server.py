@@ -13,7 +13,7 @@ import sys
 # Add the manual_solver directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'manual_solver'))
 
-from game_state import GameState
+from src.python.manual_solver.game_state import GameState
 
 app = Flask(__name__)
 CORS(app)  # Allow requests from Chrome extension
