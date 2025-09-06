@@ -22,11 +22,6 @@ class Expression(ABC):
         """Evaluate this expression against the game state."""
         pass
     
-    @abstractmethod
-    def get_dependencies(self) -> Set[str]:
-        """Return character names this expression depends on."""
-        pass
-    
     def __str__(self) -> str:
         """String representation for debugging."""
         return f"{self.__class__.__name__}(...)"
@@ -53,10 +48,6 @@ class Constraint:
             # If evaluation fails (e.g., unknown character), constraint is not satisfied
             return False
     
-    def get_dependencies(self) -> Set[str]:
-        """Get all character names this constraint depends on."""
-        return self.expression.get_dependencies()
-    
     def __str__(self) -> str:
         return f"Constraint({self.expression}) - {self.description}"
 
@@ -77,9 +68,6 @@ class Character(Expression):
                 return Position(row, col)
         raise ValueError(f"Character '{self.name}' not found in game state")
     
-    def get_dependencies(self) -> Set[str]:
-        return {self.name}
-    
     def __str__(self) -> str:
         return f"Character({self.name})"
 
@@ -96,9 +84,6 @@ class CharacterHasLabel(Expression):
                 return suspect.is_visible and suspect.label == self.label
         return False  # Character not found or not visible
     
-    def get_dependencies(self) -> Set[str]:
-        return {self.character_name}
-    
     def __str__(self) -> str:
         return f"CharacterHasLabel({self.character_name}, {self.label.value})"
 
@@ -114,9 +99,6 @@ class AllCharacters(Expression):
             positions.add(Position(row, col))
         return positions
     
-    def get_dependencies(self) -> Set[str]:
-        return set()  # Doesn't depend on specific characters
-    
     def __str__(self) -> str:
         return "AllCharacters()"
 
@@ -127,9 +109,6 @@ class Literal(Expression):
     
     def evaluate(self, game_state: GameState) -> Any:
         return self.value
-    
-    def get_dependencies(self) -> Set[str]:
-        return set()
     
     def __str__(self) -> str:
         return f"Literal({self.value})"
@@ -155,9 +134,6 @@ class Filter(Expression):
                 filtered.add(pos)
         return filtered
     
-    def get_dependencies(self) -> Set[str]:
-        return self.source.get_dependencies() | self.predicate.get_dependencies()
-    
     def __str__(self) -> str:
         return f"Filter({self.source}, {self.predicate})"
 
@@ -181,9 +157,6 @@ class Neighbors(Expression):
                     neighbors.add(Position(new_row, new_col))
         return neighbors
     
-    def get_dependencies(self) -> Set[str]:
-        return self.target.get_dependencies()
-    
     def __str__(self) -> str:
         return f"Neighbors({self.target})"
 
@@ -201,9 +174,6 @@ class Above(Expression):
         for row in range(1, pos.row):  # All rows above (1 to pos.row-1)
             above_positions.add(Position(row, pos.col))
         return above_positions
-    
-    def get_dependencies(self) -> Set[str]:
-        return self.target.get_dependencies()
     
     def __str__(self) -> str:
         return f"Above({self.target})"
@@ -223,9 +193,6 @@ class Below(Expression):
             below_positions.add(Position(row, pos.col))
         return below_positions
     
-    def get_dependencies(self) -> Set[str]:
-        return self.target.get_dependencies()
-    
     def __str__(self) -> str:
         return f"Below({self.target})"
 
@@ -244,9 +211,6 @@ class LeftOf(Expression):
             left_positions.add(Position(pos.row, col))
         return left_positions
     
-    def get_dependencies(self) -> Set[str]:
-        return self.target.get_dependencies()
-    
     def __str__(self) -> str:
         return f"LeftOf({self.target})"
 
@@ -264,9 +228,6 @@ class RightOf(Expression):
         for col in range(pos.col + 1, 4):  # All columns to the right (pos.col+1 to 3)
             right_positions.add(Position(pos.row, col))
         return right_positions
-    
-    def get_dependencies(self) -> Set[str]:
-        return self.target.get_dependencies()
     
     def __str__(self) -> str:
         return f"RightOf({self.target})"
@@ -288,9 +249,6 @@ class Column(Expression):
             column_positions.add(Position(row, column_number))
         return column_positions
     
-    def get_dependencies(self) -> Set[str]:
-        return set()  # Doesn't depend on specific characters
-    
     def __str__(self) -> str:
         return f"Column({self.column_letter})"
 
@@ -307,9 +265,6 @@ class Row(Expression):
         for col in range(4):  # Columns 0-3
             row_positions.add(Position(self.row_number, col))
         return row_positions
-    
-    def get_dependencies(self) -> Set[str]:
-        return set()  # Doesn't depend on specific characters
     
     def __str__(self) -> str:
         return f"Row({self.row_number})"
@@ -329,9 +284,6 @@ class EdgePositions(Expression):
             edge_positions.add(Position(row, 0))  # Left column
             edge_positions.add(Position(row, 3))  # Right column
         return edge_positions
-    
-    def get_dependencies(self) -> Set[str]:
-        return set()
     
     def __str__(self) -> str:
         return "EdgePositions()"
@@ -364,9 +316,6 @@ class HasLabel(Predicate):
                 return suspect.is_visible and suspect.label == self.label
         return False
     
-    def get_dependencies(self) -> Set[str]:
-        return set()
-    
     def __str__(self) -> str:
         return f"HasLabel({self.label.value})"
 
@@ -382,9 +331,6 @@ class HasProfession(Predicate):
                 return suspect.occupation.lower() == self.profession.lower()
         return False
     
-    def get_dependencies(self) -> Set[str]:
-        return set()
-    
     def __str__(self) -> str:
         return f"HasProfession({self.profession})"
 
@@ -395,9 +341,6 @@ class IsEdge(Predicate):
     def evaluate_at(self, game_state: GameState, position: Position) -> bool:
         return (position.row == 1 or position.row == 5 or 
                 position.col == 0 or position.col == 3)
-    
-    def get_dependencies(self) -> Set[str]:
-        return set()
     
     def __str__(self) -> str:
         return "IsEdge()"
@@ -412,9 +355,6 @@ class IsUnknown(Predicate):
             if row == position.row and col == position.col:
                 return not suspect.is_visible
         return False
-    
-    def get_dependencies(self) -> Set[str]:
-        return set()
     
     def __str__(self) -> str:
         return "IsUnknown()"
@@ -437,9 +377,6 @@ class Count(Expression):
         else:
             raise ValueError(f"Count source must evaluate to a collection, got {type(result)}")
     
-    def get_dependencies(self) -> Set[str]:
-        return self.source.get_dependencies()
-    
     def __str__(self) -> str:
         return f"Count({self.source})"
 
@@ -454,9 +391,6 @@ class Sum(Expression):
             return sum(result)
         else:
             raise ValueError(f"Sum source must evaluate to a collection, got {type(result)}")
-    
-    def get_dependencies(self) -> Set[str]:
-        return self.source.get_dependencies()
     
     def __str__(self) -> str:
         return f"Sum({self.source})"
@@ -493,9 +427,6 @@ class AreConnected(Expression):
         
         return len(visited) == len(positions)
     
-    def get_dependencies(self) -> Set[str]:
-        return self.source.get_dependencies()
-    
     def __str__(self) -> str:
         return f"AreConnected({self.source})"
 
@@ -514,9 +445,6 @@ class Equal(Expression):
         right_val = self.right.evaluate(game_state)
         return left_val == right_val
     
-    def get_dependencies(self) -> Set[str]:
-        return self.left.get_dependencies() | self.right.get_dependencies()
-    
     def __str__(self) -> str:
         return f"Equal({self.left}, {self.right})"
 
@@ -530,9 +458,6 @@ class Greater(Expression):
         left_val = self.left.evaluate(game_state)
         right_val = self.right.evaluate(game_state)
         return left_val > right_val
-    
-    def get_dependencies(self) -> Set[str]:
-        return self.left.get_dependencies() | self.right.get_dependencies()
     
     def __str__(self) -> str:
         return f"Greater({self.left}, {self.right})"
@@ -548,9 +473,6 @@ class GreaterEqual(Expression):
         right_val = self.right.evaluate(game_state)
         return left_val >= right_val
     
-    def get_dependencies(self) -> Set[str]:
-        return self.left.get_dependencies() | self.right.get_dependencies()
-    
     def __str__(self) -> str:
         return f"GreaterEqual({self.left}, {self.right})"
 
@@ -564,9 +486,6 @@ class Less(Expression):
         left_val = self.left.evaluate(game_state)
         right_val = self.right.evaluate(game_state)
         return left_val < right_val
-    
-    def get_dependencies(self) -> Set[str]:
-        return self.left.get_dependencies() | self.right.get_dependencies()
     
     def __str__(self) -> str:
         return f"Less({self.left}, {self.right})"
@@ -582,9 +501,6 @@ class LessEqual(Expression):
         right_val = self.right.evaluate(game_state)
         return left_val <= right_val
     
-    def get_dependencies(self) -> Set[str]:
-        return self.left.get_dependencies() | self.right.get_dependencies()
-    
     def __str__(self) -> str:
         return f"LessEqual({self.left}, {self.right})"
 
@@ -595,9 +511,6 @@ class IsOdd(Expression):
     
     def evaluate(self, game_state: GameState) -> bool:
         return self.number.evaluate(game_state) % 2 == 1
-    
-    def get_dependencies(self) -> Set[str]:
-        return self.number.get_dependencies()
     
     def __str__(self) -> str:
         return f"IsOdd({self.number})"
@@ -610,9 +523,6 @@ class IsEven(Expression):
     def evaluate(self, game_state: GameState) -> bool:
         return self.number.evaluate(game_state) % 2 == 0
 
-    def get_dependencies(self) -> Set[str]:
-        return self.number.get_dependencies()
-    
     def __str__(self) -> str:
         return f"IsEven({self.number})"
 
@@ -630,13 +540,7 @@ class And(Expression):
     
     def evaluate(self, game_state: GameState) -> bool:
         return all(expr.evaluate(game_state) for expr in self.expressions)
-    
-    def get_dependencies(self) -> Set[str]:
-        deps = set()
-        for expr in self.expressions:
-            deps |= expr.get_dependencies()
-        return deps
-    
+        
     def __str__(self) -> str:
         return f"And({', '.join(str(expr) for expr in self.expressions)})"
 
@@ -651,12 +555,6 @@ class Or(Expression):
     def evaluate(self, game_state: GameState) -> bool:
         return any(expr.evaluate(game_state) for expr in self.expressions)
     
-    def get_dependencies(self) -> Set[str]:
-        deps = set()
-        for expr in self.expressions:
-            deps |= expr.get_dependencies()
-        return deps
-    
     def __str__(self) -> str:
         return f"Or({', '.join(str(expr) for expr in self.expressions)})"
 
@@ -667,9 +565,6 @@ class Not(Expression):
     
     def evaluate(self, game_state: GameState) -> bool:
         return not self.expression.evaluate(game_state)
-    
-    def get_dependencies(self) -> Set[str]:
-        return self.expression.get_dependencies()
     
     def __str__(self) -> str:
         return f"Not({self.expression})"
@@ -695,13 +590,7 @@ class Union(Expression):
             else:
                 raise ValueError(f"Union operand must evaluate to a set, got {type(expr_result)}")
         return result
-    
-    def get_dependencies(self) -> Set[str]:
-        deps = set()
-        for expr in self.expressions:
-            deps |= expr.get_dependencies()
-        return deps
-    
+        
     def __str__(self) -> str:
         return f"Union({', '.join(str(expr) for expr in self.expressions)})"
 
@@ -729,169 +618,8 @@ class Intersection(Expression):
                 raise ValueError(f"Intersection operand must evaluate to a set, got {type(expr_result)}")
         return result
     
-    def get_dependencies(self) -> Set[str]:
-        deps = set()
-        for expr in self.expressions:
-            deps |= expr.get_dependencies()
-        return deps
-    
     def __str__(self) -> str:
         return f"Intersection({', '.join(str(expr) for expr in self.expressions)})"
-
-# ============================================================================
-# CONSTRAINT EVALUATION ENGINE
-# ============================================================================
-
-class ConstraintEngine:
-    """Engine for evaluating constraints and finding deductions."""
-    
-    def __init__(self):
-        self.constraints: List[Constraint] = []
-    
-    def add_constraint(self, constraint: Constraint):
-        """Add a constraint to the engine."""
-        self.constraints.append(constraint)
-    
-    def add_constraints(self, constraints: List[Constraint]):
-        """Add multiple constraints to the engine."""
-        self.constraints.extend(constraints)
-    
-    def clear_constraints(self):
-        """Clear all constraints."""
-        self.constraints.clear()
-    
-    def evaluate_all(self, game_state: GameState) -> Dict[str, bool]:
-        """Evaluate all constraints and return their satisfaction status."""
-        results = {}
-        for i, constraint in enumerate(self.constraints):
-            try:
-                results[f"constraint_{i}"] = constraint.evaluate(game_state)
-            except Exception as e:
-                results[f"constraint_{i}"] = False
-                print(f"Error evaluating constraint {i}: {e}")
-        return results
-    
-    def find_violations(self, game_state: GameState) -> List[Tuple[int, Constraint, str]]:
-        """Find constraints that are violated in the current game state."""
-        violations = []
-        for i, constraint in enumerate(self.constraints):
-            try:
-                if not constraint.evaluate(game_state):
-                    violations.append((i, constraint, "Constraint not satisfied"))
-            except Exception as e:
-                violations.append((i, constraint, f"Evaluation error: {e}"))
-        return violations
-    
-    def test_assignment(self, game_state: GameState, character_name: str, label: Label) -> bool:
-        """Test if assigning a label to a character violates any constraints."""
-        # Create a test game state
-        test_state = game_state.copy()
-        
-        # Find the character and assign the label
-        for cell_name, suspect in test_state.cell_map.items():
-            if suspect.name.lower() == character_name.lower():
-                test_state._set_label(cell_name, label)
-                break
-        else:
-            raise ValueError(f"Character '{character_name}' not found")
-        
-        # Check if any constraints are violated
-        violations = self.find_violations(test_state)
-        return len(violations) == 0
-    
-    def find_forced_assignments(self, game_state: GameState) -> List[Tuple[str, Label, str]]:
-        """Find character assignments that are forced by the constraints."""
-        forced = []
-        
-        # Get all unknown characters
-        unknown_characters = []
-        for cell_name, suspect in game_state.cell_map.items():
-            if not suspect.is_visible:
-                unknown_characters.append(suspect.name)
-        
-        # Test each unknown character with both labels
-        for char_name in unknown_characters:
-            innocent_valid = self.test_assignment(game_state, char_name, Label.INNOCENT)
-            criminal_valid = self.test_assignment(game_state, char_name, Label.CRIMINAL)
-            
-            if innocent_valid and not criminal_valid:
-                forced.append((char_name, Label.INNOCENT, "Only innocent assignment is valid"))
-            elif criminal_valid and not innocent_valid:
-                forced.append((char_name, Label.CRIMINAL, "Only criminal assignment is valid"))
-            elif not innocent_valid and not criminal_valid:
-                forced.append((char_name, None, "No valid assignment - contradiction detected"))
-        
-        return forced
-
-# ============================================================================
-# CONSTRAINT BUILDER HELPERS
-# ============================================================================
-
-class ConstraintBuilder:
-    """Helper class for building common constraint patterns."""
-    
-    @staticmethod
-    def neighbor_count_comparison(char1_name: str, char2_name: str, label: Label, comparison: str) -> Constraint:
-        """Build constraint like 'Jose has more innocent neighbors than Ethan'."""
-        char1_neighbors = Count(Filter(Neighbors(Character(char1_name)), HasLabel(label)))
-        char2_neighbors = Count(Filter(Neighbors(Character(char2_name)), HasLabel(label)))
-        
-        if comparison.lower() == "more":
-            expr = Greater(char1_neighbors, char2_neighbors)
-        elif comparison.lower() == "equal":
-            expr = Equal(char1_neighbors, char2_neighbors)
-        elif comparison.lower() == "less":
-            expr = Less(char1_neighbors, char2_neighbors)
-        else:
-            raise ValueError(f"Unknown comparison: {comparison}")
-        
-        return Constraint(expr, f"{char1_name} has {comparison} {label.value} neighbors than {char2_name}")
-    
-    @staticmethod
-    def exact_count_in_area(area_expr: Expression, label: Label, count: int) -> Constraint:
-        """Build constraint like 'exactly N innocents in area'."""
-        count_expr = Count(Filter(area_expr, HasLabel(label)))
-        expr = Equal(count_expr, Literal(count))
-        return Constraint(expr, f"Exactly {count} {label.value}s in area")
-    
-    @staticmethod
-    def connectivity_constraint(area_expr: Expression, label: Label) -> Constraint:
-        """Build constraint like 'all innocents in area are connected'."""
-        filtered_area = Filter(area_expr, HasLabel(label))
-        expr = AreConnected(filtered_area)
-        return Constraint(expr, f"All {label.value}s in area are connected")
-    
-    @staticmethod
-    def edge_constraint(area_expr: Expression, label: Label, count: int) -> Constraint:
-        """Build constraint like 'N of the innocents in area are on edges'."""
-        innocents_in_area = Filter(area_expr, HasLabel(label))
-        innocents_on_edge = Intersection(innocents_in_area, EdgePositions())
-        count_expr = Count(innocents_on_edge)
-        expr = Equal(count_expr, Literal(count))
-        return Constraint(expr, f"{count} of the {label.value}s in area are on edges")
-    
-    @staticmethod
-    def total_profession_count(profession: str, label: Label, count: int) -> Constraint:
-        """Build constraint like 'there are 4 innocent cops and sleuths'."""
-        if isinstance(profession, str):
-            professions = [profession]
-        else:
-            professions = profession
-        
-        # Filter all characters by profession and label
-        profession_filters = []
-        for prof in professions:
-            profession_filters.append(Filter(AllCharacters(), 
-                                           And(HasProfession(prof), HasLabel(label))))
-        
-        if len(profession_filters) == 1:
-            filtered_chars = profession_filters[0]
-        else:
-            filtered_chars = Union(*profession_filters)
-        
-        count_expr = Count(filtered_chars)
-        expr = Equal(count_expr, Literal(count))
-        return Constraint(expr, f"Total of {count} {label.value} {'/'.join(professions)}")
 
 # ============================================================================
 # CONVENIENCE FUNCTIONS

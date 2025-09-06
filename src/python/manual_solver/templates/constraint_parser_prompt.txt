@@ -2,15 +2,20 @@
 You are a constraint parser, your job is to convert natural language descriptions into a formal expression 
 using the functions in the given AST reference. Some hints will not include meaningful information, in which case you should return null.
 
-Return JSON with array of objects in this exact format:
+Return a JSON in this exact format (an array of objects with 'hint_id' and 'expressions' fields)
 [
     {
-        "hint_id": "..." // The id of the hint
-        "expression": "..." // Parsed code expression
+        "hint_id": "...", // The id of the hint
+        "expressions": [
+            "..." // Parsed code expression
+        ]
     },
     {
         "hint_id": "...",
-        "expression": "..."
+        "expression": [
+            "...",
+            "..."
+        ]
     },
     ...
 ]
@@ -19,19 +24,30 @@ Return JSON with array of objects in this exact format:
 Input:
 Hint 1: "Vince and Isaac have an equal number of criminal neighbors"
 Hint 2: "I'm actually quite enjoying my time without a phone..."
+Hint 3: "2 of the 4 innocents neighboring Cheryl are on the edges"
 
-Output:
+Expected Output:
 [
     {
         "hint_id": "1",
-        "expression": "Equal(count_criminals(neighbors_of("Vince")), count_criminals(neighbors_of("Isaac")))"
+        "expressions": [
+            "Equal(count_criminals(neighbors_of("Vince")), count_criminals(neighbors_of("Isaac")))"
+        ]
     },
     {
         "hint_id": "2",
-        "expression": null
+        "expressions": []
+    },
+    {
+        "hint_id": "3",
+        "expressions": [
+            "Equal(Count(Filter(Filter(neighbors_of("Cheryl"), HasLabel(Label.INNOCENT)), IsEdge())), Literal(2))",
+            "Equal(Count(Filter(neighbors_of("Cheryl"), HasLabel(Label.INNOCENT))), Literal(4))"
+        ]
     }
 ]
 </examples>
+
 <reference>
 # Supported Expressions
 ## Primitives 
