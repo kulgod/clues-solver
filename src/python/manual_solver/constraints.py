@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Set, Dict, Tuple, Union, Any
+from typing import Set, Tuple, Union, Any
 from dataclasses import dataclass
 
 from src.python.manual_solver.game_state import GameState, Suspect, Label
@@ -24,15 +24,15 @@ class Expression(ABC):
     
     def __and__(self, other: 'Expression') -> 'Expression':
         """Support & operator for logical AND."""
-        return And(self, other)
+        return _ExpressionAnd(self, other)
     
     def __or__(self, other: 'Expression') -> 'Expression':
         """Support | operator for logical OR."""
-        return Or(self, other)
+        return _ExpressionOr(self, other)
     
     def __invert__(self) -> 'Expression':
         """Support ~ operator for logical NOT."""
-        return Not(self)
+        return _ExpressionNot(self)
     
     def __str__(self) -> str:
         """String representation for debugging."""
@@ -69,7 +69,12 @@ class Constraint:
 
 @dataclass(frozen=True)
 class Character(Expression):
-    """Reference to a specific character by name."""
+    """Character()
+    - Description: Reference to a specific character by name.
+    - Params: Character name (string)
+    - Returns: Character position
+    - Usage: Character("Alice")
+    """
     name: str
     
     def evaluate(self, game_state: GameState) -> Position:
@@ -85,7 +90,12 @@ class Character(Expression):
 
 @dataclass(frozen=True)
 class CharacterHasLabel(Expression):
-    """Check if a specific character has a given label."""
+    """CharacterHasLabel()
+    - Description: Check if a specific character has a given label
+    - Params: Character name (string), Label (INNOCENT or CRIMINAL)
+    - Returns: Boolean evaluation
+    - Usage: CharacterHasLabel("Vince", Label.INNOCENT)
+    """
     character_name: str
     label: Label
     
@@ -100,23 +110,13 @@ class CharacterHasLabel(Expression):
         return f"CharacterHasLabel({self.character_name}, {self.label.value})"
 
 @dataclass(frozen=True)
-class AllCharacters(Expression):
-    """All characters in the game."""
-    
-    def evaluate(self, game_state: GameState) -> Set[Position]:
-        """Return positions of all characters."""
-        positions = set()
-        for cell_name in game_state.cell_map.keys():
-            row, col = game_state._to_cell_coords(cell_name)
-            positions.add(Position(row, col))
-        return positions
-    
-    def __str__(self) -> str:
-        return "AllCharacters()"
-
-@dataclass(frozen=True)
 class Literal(Expression):
-    """A literal value (number, string, etc.)."""
+    """Literal()
+    - Description: A literal value (number, string, etc.).
+    - Params: Any value
+    - Returns: The literal value
+    - Usage: Literal(2), Literal("detective")
+    """
     value: Any
     
     def evaluate(self, game_state: GameState) -> Any:
@@ -130,8 +130,33 @@ class Literal(Expression):
 # ============================================================================
 
 @dataclass(frozen=True)
+class AllCharacters(Expression):
+    """AllCharacters()
+    - Description: All characters in the game.
+    - Params: None
+    - Returns: Set of all character positions
+    - Usage: AllCharacters()
+    """
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        """Return positions of all characters."""
+        positions = set()
+        for cell_name in game_state.cell_map.keys():
+            row, col = game_state._to_cell_coords(cell_name)
+            positions.add(Position(row, col))
+        return positions
+    
+    def __str__(self) -> str:
+        return "AllCharacters()"
+
+@dataclass(frozen=True)
 class Neighbors(Expression):
-    """Get all neighbors (including diagonal) of a character or position."""
+    """Neighbors()
+    - Description: Get all neighbors (including diagonal) of a character or position.
+    - Params: Character/Position expression
+    - Returns: Set of neighboring positions
+    - Usage: Neighbors(Character("Dave"))
+    """
     target: Expression  # Should evaluate to Position
     
     def evaluate(self, game_state: GameState) -> Set[Position]:
@@ -154,7 +179,12 @@ class Neighbors(Expression):
 
 @dataclass(frozen=True)
 class Above(Expression):
-    """Get all positions above a character (same column, lower row numbers)."""
+    """Above()
+    - Description: Get all positions above a character (same column, lower row numbers).
+    - Params: Character/Position expression
+    - Returns: Set of positions
+    - Usage: Above(Character("Alice"))
+    """
     target: Expression  # Should evaluate to Position
     
     def evaluate(self, game_state: GameState) -> Set[Position]:
@@ -172,7 +202,12 @@ class Above(Expression):
 
 @dataclass(frozen=True)
 class Below(Expression):
-    """Get all positions below a character (same column, higher row numbers)."""
+    """Below()
+    - Description: Get all positions below a character (same column, higher row numbers).
+    - Params: Character/Position expression
+    - Returns: Set of positions
+    - Usage: Below(Character("Bob"))
+    """
     target: Expression  # Should evaluate to Position
     
     def evaluate(self, game_state: GameState) -> Set[Position]:
@@ -190,7 +225,12 @@ class Below(Expression):
 
 @dataclass(frozen=True)
 class LeftOf(Expression):
-    """Get all positions to the left of a character (same row, lower column numbers)."""
+    """LeftOf()
+    - Description: Get all positions to the left of a character (same row, lower column numbers).
+    - Params: Character/Position expression
+    - Returns: Set of positions
+    - Usage: LeftOf(Character("Charlie"))
+    """
     target: Expression  # Should evaluate to Position
     
     def evaluate(self, game_state: GameState) -> Set[Position]:
@@ -208,7 +248,12 @@ class LeftOf(Expression):
 
 @dataclass(frozen=True)
 class RightOf(Expression):
-    """Get all positions to the right of a character (same row, higher column numbers)."""
+    """RightOf()
+    - Description: Get all positions to the right of a character (same row, higher column numbers).
+    - Params: Character/Position expression
+    - Returns: Set of positions
+    - Usage: RightOf(Character("Eve"))
+    """
     target: Expression  # Should evaluate to Position
     
     def evaluate(self, game_state: GameState) -> Set[Position]:
@@ -226,7 +271,12 @@ class RightOf(Expression):
 
 @dataclass(frozen=True)
 class Column(Expression):
-    """Get all positions in a specific column."""
+    """Column()
+    - Description: Get all positions in a specific column.
+    - Params: Column letter (string, A-D)
+    - Returns: Set of positions in that column
+    - Usage: Column("A"), Column("C")
+    """
     column_letter: str  # Column letter (A-D)
     
     def evaluate(self, game_state: GameState) -> Set[Position]:
@@ -246,7 +296,12 @@ class Column(Expression):
 
 @dataclass(frozen=True)
 class Row(Expression):
-    """Get all positions in a specific row."""
+    """Row()
+    - Description: Get all positions in a specific row.
+    - Params: Row number (integer, 1-5)
+    - Returns: Set of positions in that row
+    - Usage: Row(1), Row(3)
+    """
     row_number: int  # Row number (1-indexed)
     
     def evaluate(self, game_state: GameState) -> Set[Position]:
@@ -263,7 +318,12 @@ class Row(Expression):
 
 @dataclass(frozen=True)
 class EdgePositions(Expression):
-    """Get all positions on the edge of the grid."""
+    """EdgePositions()
+    - Description: Get all positions on the edge of the grid.
+    - Params: None
+    - Returns: Set of edge positions
+    - Usage: EdgePositions()
+    """
     
     def evaluate(self, game_state: GameState) -> Set[Position]:
         edge_positions = set()
@@ -286,7 +346,12 @@ class EdgePositions(Expression):
 
 @dataclass(frozen=True)
 class Union(Expression):
-    """Union of multiple sets."""
+    """Union()
+    - Description: Union of multiple sets.
+    - Params: Multiple set expressions
+    - Returns: Set union
+    - Usage: Union(set1, set2, set3)
+    """
     expressions: Tuple[Expression, ...]
     
     def __init__(self, *expressions: Expression):
@@ -307,7 +372,12 @@ class Union(Expression):
 
 @dataclass(frozen=True)
 class Intersection(Expression):
-    """Intersection of multiple sets."""
+    """Intersection()
+    - Description: Intersection of multiple sets.
+    - Params: Multiple set expressions
+    - Returns: Set intersection
+    - Usage: Intersection(set1, set2)
+    """
     expressions: Tuple[Expression, ...]
     
     def __init__(self, *expressions: Expression):
@@ -338,7 +408,12 @@ class Intersection(Expression):
 
 @dataclass(frozen=True)
 class Filter(Expression):
-    """Filter a set of positions by a predicate."""
+    """Filter()
+    - Description: Filter a set of positions by a predicate.
+    - Params: Source set expression, Predicate expression
+    - Returns: Filtered set of positions
+    - Usage: Filter(AllCharacters(), HasLabel(Label.INNOCENT))
+    """
     source: Expression  # Should evaluate to Set[Position]
     predicate: Expression  # Should be a predicate expression
     
@@ -375,19 +450,24 @@ class Predicate(Expression):
     
     def __and__(self, other: 'Predicate') -> 'Predicate':
         """Support & operator for predicate AND combinations."""
-        return PredicateAnd(self, other)
+        return _PredicateAnd(self, other)
     
     def __or__(self, other: 'Predicate') -> 'Predicate':
         """Support | operator for predicate OR combinations."""
-        return PredicateOr(self, other)
+        return _PredicateOr(self, other)
     
     def __invert__(self) -> 'Predicate':
         """Support ~ operator for predicate NOT."""
-        return PredicateNot(self)
+        return _PredicateNot(self)
 
 @dataclass(frozen=True)
 class HasLabel(Predicate):
-    """Check if a character at a position has a specific label."""
+    """HasLabel()
+    - Description: Check if a character at a position has a specific label.
+    - Params: Label (INNOCENT or CRIMINAL)
+    - Returns: Boolean predicate
+    - Usage: HasLabel(Label.INNOCENT)
+    """
     label: Label
     
     def evaluate_at(self, game_state: GameState, position: Position) -> bool:
@@ -402,7 +482,12 @@ class HasLabel(Predicate):
 
 @dataclass(frozen=True)
 class HasProfession(Predicate):
-    """Check if a character at a position has a specific profession."""
+    """HasProfession()
+    - Description: Check if a character at a position has a specific profession.
+    - Params: Profession (string)
+    - Returns: Boolean predicate
+    - Usage: HasProfession("detective")
+    """
     profession: str
     
     def evaluate_at(self, game_state: GameState, position: Position) -> bool:
@@ -417,7 +502,12 @@ class HasProfession(Predicate):
 
 @dataclass(frozen=True)
 class IsEdge(Predicate):
-    """Check if a position is on the edge of the grid."""
+    """IsEdge()
+    - Description: Check if a position is on the edge of the grid.
+    - Params: None
+    - Returns: Boolean predicate
+    - Usage: IsEdge()
+    """
     
     def evaluate_at(self, game_state: GameState, position: Position) -> bool:
         return (position.row == 1 or position.row == 5 or 
@@ -428,7 +518,12 @@ class IsEdge(Predicate):
 
 @dataclass(frozen=True)
 class IsUnknown(Predicate):
-    """Check if a character at a position has unknown label."""
+    """IsUnknown()
+    - Description: Check if a character at a position has unknown label.
+    - Params: None
+    - Returns: Boolean predicate
+    - Usage: IsUnknown()
+    """
     
     def evaluate_at(self, game_state: GameState, position: Position) -> bool:
         for cell_name, suspect in game_state.cell_map.items():
@@ -445,7 +540,7 @@ class IsUnknown(Predicate):
 # ============================================================================
 
 @dataclass(frozen=True)
-class PredicateAnd(Predicate):
+class _PredicateAnd(Predicate):
     """Logical AND combination of two predicates."""
     left: Predicate
     right: Predicate
@@ -455,10 +550,10 @@ class PredicateAnd(Predicate):
                 self.right.evaluate_at(game_state, position))
     
     def __str__(self) -> str:
-        return f"({self.left} & {self.right})"
+        return f"And({self.left}, {self.right})"
 
 @dataclass(frozen=True)
-class PredicateOr(Predicate):
+class _PredicateOr(Predicate):
     """Logical OR combination of two predicates."""
     left: Predicate
     right: Predicate
@@ -468,10 +563,10 @@ class PredicateOr(Predicate):
                 self.right.evaluate_at(game_state, position))
     
     def __str__(self) -> str:
-        return f"({self.left} | {self.right})"
+        return f"Or({self.left}, {self.right})"
 
 @dataclass(frozen=True)
-class PredicateNot(Predicate):
+class _PredicateNot(Predicate):
     """Logical NOT of a predicate."""
     predicate: Predicate
     
@@ -479,7 +574,7 @@ class PredicateNot(Predicate):
         return not self.predicate.evaluate_at(game_state, position)
     
     def __str__(self) -> str:
-        return f"~{self.predicate}"
+        return f"Not({self.predicate})"
 
 # ============================================================================
 # AGGREGATIONS
@@ -487,7 +582,12 @@ class PredicateNot(Predicate):
 
 @dataclass(frozen=True)
 class Count(Expression):
-    """Count the number of elements in a set."""
+    """Count()
+    - Description: Count the number of elements in a set.
+    - Params: Source set expression
+    - Returns: Number of elements in the set
+    - Usage: Count(AllCharacters())
+    """
     source: Expression  # Should evaluate to Set[Position]
     
     def evaluate(self, game_state: GameState) -> int:
@@ -503,23 +603,13 @@ class Count(Expression):
         return f"Count({self.source})"
 
 @dataclass(frozen=True)
-class Sum(Expression):
-    """Sum numeric values from a collection."""
-    source: Expression  # Should evaluate to collection of numbers
-    
-    def evaluate(self, game_state: GameState) -> Union[int, float]:
-        result = self.source.evaluate(game_state)
-        if isinstance(result, (set, list, tuple)):
-            return sum(result)
-        else:
-            raise ValueError(f"Sum source must evaluate to a collection, got {type(result)}")
-    
-    def __str__(self) -> str:
-        return f"Sum({self.source})"
-
-@dataclass(frozen=True)
 class AreConnected(Expression):
-    """Check if all positions in a set are connected (adjacent to each other)."""
+    """AreConnected()
+    - Description: Check if all positions in a set are connected (adjacent to each other).
+    - Params: Source set expression
+    - Returns: Boolean evaluation
+    - Usage: AreConnected(Filter(Row(1), HasLabel(Label.CRIMINAL)))
+    """
     source: Expression  # Should evaluate to Set[Position]
     
     def evaluate(self, game_state: GameState) -> bool:
@@ -558,7 +648,12 @@ class AreConnected(Expression):
 
 @dataclass(frozen=True)
 class Equal(Expression):
-    """Check if two expressions evaluate to equal values."""
+    """Equal()
+    - Description: Check if two expressions evaluate to equal values.
+    - Params: Two expressions
+    - Returns: Boolean evaluation
+    - Usage: Equal(count_expr, Literal(2))
+    """
     left: Expression
     right: Expression
     
@@ -572,7 +667,12 @@ class Equal(Expression):
 
 @dataclass(frozen=True)
 class Greater(Expression):
-    """Check if left expression is greater than right expression."""
+    """Greater()
+    - Description: Check if left expression is greater than right expression.
+    - Params: Two expressions
+    - Returns: Boolean evaluation
+    - Usage: Greater(count1, count2)
+    """
     left: Expression
     right: Expression
     
@@ -586,7 +686,12 @@ class Greater(Expression):
 
 @dataclass(frozen=True)
 class GreaterEqual(Expression):
-    """Check if left expression is greater than or equal to right expression."""
+    """GreaterEqual()
+    - Description: Check if left expression is greater than or equal to right expression.
+    - Params: Two expressions
+    - Returns: Boolean evaluation
+    - Usage: GreaterEqual(count1, count2)
+    """
     left: Expression
     right: Expression
     
@@ -600,7 +705,12 @@ class GreaterEqual(Expression):
 
 @dataclass(frozen=True)
 class Less(Expression):
-    """Check if left expression is less than right expression."""
+    """Less()
+    - Description: Check if left expression is less than right expression.
+    - Params: Two expressions
+    - Returns: Boolean evaluation
+    - Usage: Less(count1, count2)
+    """
     left: Expression
     right: Expression
     
@@ -614,7 +724,12 @@ class Less(Expression):
 
 @dataclass(frozen=True)
 class LessEqual(Expression):
-    """Check if left expression is less than or equal to right expression."""
+    """LessEqual()
+    - Description: Check if left expression is less than or equal to right expression.
+    - Params: Two expressions
+    - Returns: Boolean evaluation
+    - Usage: LessEqual(count1, count2)
+    """
     left: Expression
     right: Expression
     
@@ -628,7 +743,12 @@ class LessEqual(Expression):
 
 @dataclass(frozen=True)
 class IsOdd(Expression):
-    """Check if a number is odd."""
+    """IsOdd()
+    - Description: Check if a number is odd.
+    - Params: Number expression
+    - Returns: Boolean evaluation
+    - Usage: IsOdd(count)
+    """
     number: Expression
     
     def evaluate(self, game_state: GameState) -> bool:
@@ -639,7 +759,12 @@ class IsOdd(Expression):
 
 @dataclass(frozen=True)
 class IsEven(Expression):
-    """Check if a number is even."""
+    """IsEven()
+    - Description: Check if a number is even.
+    - Params: Number expression
+    - Returns: Boolean evaluation
+    - Usage: IsEven(count)
+    """
     number: Expression
     
     def evaluate(self, game_state: GameState) -> bool:
@@ -653,7 +778,7 @@ class IsEven(Expression):
 # ============================================================================
 
 @dataclass(frozen=True)
-class And(Expression):
+class _ExpressionAnd(Expression):
     """Logical AND of multiple expressions."""
     expressions: Tuple[Expression, ...]
     
@@ -667,7 +792,7 @@ class And(Expression):
         return f"And({', '.join(str(expr) for expr in self.expressions)})"
 
 @dataclass(frozen=True)
-class Or(Expression):
+class _ExpressionOr(Expression):
     """Logical OR of multiple expressions."""
     expressions: Tuple[Expression, ...]
     
@@ -681,7 +806,7 @@ class Or(Expression):
         return f"Or({', '.join(str(expr) for expr in self.expressions)})"
 
 @dataclass(frozen=True)
-class Not(Expression):
+class _ExpressionNot(Expression):
     """Logical NOT of an expression."""
     expression: Expression
     
@@ -691,6 +816,73 @@ class Not(Expression):
     def __str__(self) -> str:
         return f"Not({self.expression})"
 
+
+# ============================================================================
+# GENERIC LOGICAL OPERATORS
+# ============================================================================
+
+def And(*operands) -> Expression:
+    """And()
+    - Description: Generic AND operator that works with both expressions and predicates.
+    - Params: Multiple expressions OR multiple predicates (must be consistent)
+    - Returns: Boolean evaluation
+    - Usage: And(expr1, expr2, expr3), And(HasLabel(Label.INNOCENT), IsEdge())
+    - Symbolic operator: & (e.g., expr1 & expr2)
+    """
+    if not operands:
+        raise ValueError("And() requires at least one operand")
+    
+    # Check if all operands are predicates
+    all_predicates = all(isinstance(op, Predicate) for op in operands)
+    operator = _PredicateAnd if all_predicates else _ExpressionAnd
+    if len(operands) == 1:
+        return operands[0]
+    elif len(operands) == 2:
+        return operator(operands[0], operands[1])
+    else:
+        # For more than 2, nest them: And(a, b, c) -> PredicateAnd(PredicateAnd(a, b), c)
+        result = operator(operands[0], operands[1])
+        for op in operands[2:]:
+            result = operator(result, op)
+        return result
+
+def Or(*operands) -> Expression:
+    """Or()
+    - Description: Generic OR operator that works with both expressions and predicates.
+    - Params: Multiple expressions OR multiple predicates (must be consistent)
+    - Returns: Boolean evaluation
+    - Usage: Or(expr1, expr2, expr3), Or(HasLabel(Label.INNOCENT), HasProfession("detective"))
+    - Symbolic operator: | (e.g., expr1 | expr2)
+    """
+    if not operands:
+        raise ValueError("Or() requires at least one operand")
+    
+    # Check if all operands are predicates
+    all_predicates = all(isinstance(op, Predicate) for op in operands)
+    operator = _PredicateOr if all_predicates else _ExpressionOr
+    if len(operands) == 1:
+        return operands[0]
+    elif len(operands) == 2:
+        return operator(operands[0], operands[1])
+    else:
+        # For more than 2, nest them: Or(a, b, c) -> PredicateOr(PredicateOr(a, b), c)
+        result = operator(operands[0], operands[1])
+        for op in operands[2:]:
+            result = operator(result, op)
+        return result
+
+def Not(operand) -> Expression:
+    """Not()
+    - Description: Generic NOT operator that works with both expressions and predicates.
+    - Params: Single expression or predicate
+    - Returns: Boolean evaluation
+    - Usage: Not(expr1), Not(HasLabel(Label.CRIMINAL))
+    - Symbolic operator: ~ (e.g., ~expr1)
+    """
+    if isinstance(operand, Predicate):
+        return _PredicateNot(operand)
+    else:
+        return _ExpressionNot(operand)
 
 # ============================================================================
 # CONVENIENCE FUNCTIONS
@@ -734,6 +926,6 @@ def count_criminals(area_expr: Expression) -> Expression:
 
 
 if __name__ == "__main__":
-    description = "Equal(Count(Filter(Filter(AllCharacters(), Or(HasProfession(\"cop\"), HasProfession(\"sleuth\"))), HasLabel(Label.INNOCENT))), Literal(4))"
+    description = "Equal(Count(Filter(AllCharacters(), HasLabel(Label.INNOCENT) & (HasProfession(\"cop\") | HasProfession(\"sleuth\")))), Literal(4))"
     res = Constraint.from_string(description)
     print(res)

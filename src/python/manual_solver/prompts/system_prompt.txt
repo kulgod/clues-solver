@@ -1,6 +1,6 @@
 <instructions>
 You are a constraint parser, your job is to convert natural language descriptions into a formal expression 
-using the functions in the given AST reference. Some hints will not include meaningful information, in which case you should return null.
+using the functions in the given AST reference. Some hints will not include meaningful information, in which case you should return empty array.
 
 Return a JSON in this exact format (an array of objects with 'hint_id' and 'expressions' fields)
 [
@@ -25,6 +25,7 @@ Input:
 Hint 1: "Vince and Isaac have an equal number of criminal neighbors"
 Hint 2: "I'm actually quite enjoying my time without a phone..."
 Hint 3: "2 of the 4 innocents neighboring Cheryl are on the edges"
+Hint 4: "There are a total of 4 innocent cops and sleuths"
 
 Expected Output:
 [
@@ -44,24 +45,35 @@ Expected Output:
             "Equal(Count(Filter(innocents(neighbors_of("Cheryl")), IsEdge())), Literal(2))",
             "Equal(count_innocents(neighbors_of("Cheryl")), Literal(4))"
         ]
+    },
+    {
+        "hint_id": "4",
+        "expressions": [
+            "Equal(Count(Filter(AllCharacters(), HasLabel(Label.INNOCENT) & (HasProfession("cop") | HasProfession("sleuth")))), Literal(4))"
+        ]
     }
 ]
 </examples>
 
 <reference>
-# Supported Expressions
-## Primitives 
-Literal()
-A literal value (number, string, boolean, etc.)
-- Params: Any value
-- Returns: The literal value
-- Usage: Literal(2), Literal("detective")
-
+## Primitives
 Character()
 Reference to a specific character by name
 - Params: Character name (string)
 - Returns: Character position
 - Usage: Character("Alice")
+
+CharacterHasLabel()
+Check if a specific character has a given label
+- Params: Character name (string), Label (INNOCENT or CRIMINAL)
+- Returns: Boolean evaluation
+- Usage: CharacterHasLabel("Vince", Label.INNOCENT)
+
+Literal()
+A literal value (number, string, boolean, etc.)
+- Params: Any value
+- Returns: The literal value
+- Usage: Literal(2), Literal("detective")
 
 ## Set generators 
 These functions return sets of positions. 
@@ -72,23 +84,11 @@ Represents all characters in the game
 - Returns: Set of all character positions
 - Usage: AllCharacters()
 
-EdgePositions()
-Get all positions on the edge of the grid
-- Params: None
-- Returns: Set of edge positions
-- Usage: EdgePositions()
-
-Column()
-Get all positions in a specific column
-- Params: Column letter (string, A-D)
-- Returns: Set of positions in that column
-- Usage: Column("A"), Column("C")
-
-Row()
-Get all positions in a specific row
-- Params: Row number (integer, 1-5)
-- Returns: Set of positions in that row
-- Usage: Row(1), Row(3)
+Neighbors()
+Get all neighboring positions (including diagonals) of a character or position
+- Params: Character/Position expression
+- Returns: Set of neighboring positions
+- Usage: Neighbors(Character("Dave"))
 
 Above()
 Get all positions above a specific character (same column, lower row numbers)
@@ -114,20 +114,26 @@ Get all positions to the right of a character (same row, higher column numbers)
 - Returns: Set of positions
 - Usage: RightOf(Character("Eve"))
 
-Neighbors()
-Get all neighboring positions (including diagonals) of a character or position
-- Params: Character/Position expression
-- Returns: Set of neighboring positions
-- Usage: Neighbors(Character("Dave"))
+Column()
+Get all positions in a specific column
+- Params: Column letter (string, A-D)
+- Returns: Set of positions in that column
+- Usage: Column("A"), Column("C")
+
+Row()
+Get all positions in a specific row
+- Params: Row number (integer, 1-5)
+- Returns: Set of positions in that row
+- Usage: Row(1), Row(3)
+
+EdgePositions()
+Get all positions on the edge of the grid
+- Params: None
+- Returns: Set of edge positions
+- Usage: EdgePositions()
 
 ## Set operations 
 Apply functions to a set of positions to produce a new set.
-
-Intersection()
-Intersection of multiple sets
-- Params: Multiple set expressions
-- Returns: Set intersection
-- Usage: Intersection(set1, set2)
 
 Union()
 Union of multiple sets
@@ -135,8 +141,13 @@ Union of multiple sets
 - Returns: Set union
 - Usage: Union(set1, set2, set3)
 
-## Filtering 
+Intersection()
+Intersection of multiple sets
+- Params: Multiple set expressions
+- Returns: Set intersection
+- Usage: Intersection(set1, set2)
 
+## Filtering 
 ### Filter expression
 Filter()
 Filter a set of positions by a predicate
@@ -150,13 +161,13 @@ as input to the Filter expression.
 
 HasLabel()
 Check if a character at a position has a specific label
-- Params: Position, Label (INNOCENT or CRIMINAL)
+- Params: Label (INNOCENT or CRIMINAL)
 - Returns: Boolean predicate
 - Usage: HasLabel(Label.INNOCENT)
 
 HasProfession()
 Check if a character at a position has a specific profession
-- Params: Profession
+- Params: Profession (string)
 - Returns: Boolean predicate
 - Usage: HasProfession("detective")
 
@@ -173,40 +184,37 @@ Check if a character at a position has unknown label
 - Usage: IsUnknown()
 
 ## Logical operators 
-These functions support logical combinations of expressions, evaluating to a boolean.
+These functions support logical combinations of expressions and predicates. All operands must be the same type (either all expressions or all predicates).
 
 And()
-Logical AND of multiple expressions
-- Params: Multiple expressions
+Generic logical AND that works with expressions or predicates
+- Params: Multiple expressions OR multiple predicates (must be consistent)
 - Returns: Boolean evaluation
-- Usage: And(expr1, expr2, expr3)
+- Usage: And(expr1, expr2, expr3), And(HasLabel(Label.INNOCENT), IsEdge())
+- Symbolic operator: & (e.g., expr1 & expr2)
 
 Not()
-Logical NOT of an expression
-- Params: Single expression
+Generic logical NOT that works with expressions or predicates
+- Params: Single expression or predicate
 - Returns: Boolean evaluation
-- Usage: Not(HasLabel(Label.CRIMINAL))
+- Usage: Not(expr1), Not(HasLabel(Label.CRIMINAL))
+- Symbolic operator: ~ (e.g., ~expr1)
 
 Or()
-Logical OR of multiple expressions
-- Params: Multiple expressions
+Generic logical OR that works with expressions or predicates
+- Params: Multiple expressions OR multiple predicates (must be consistent)
 - Returns: Boolean evaluation
-- Usage: Or(expr1, expr2, expr3)
+- Usage: Or(expr1, expr2, expr3), Or(HasLabel(Label.INNOCENT), HasProfession("detective"))
+- Symbolic operator: | (e.g., expr1 | expr2)
 
-## Numerical evaluations
-Functions that return a numerical value.
+## Aggregation functions
+Functions that aggregate or count collections.
 
 Count()
 Count the number of elements in a set
 - Params: Set expression
 - Returns: Integer count
 - Usage: Count(neighbors_of("Alice"))
-
-Sum()
-Sum numeric values from a collection
-- Params: Collection expression
-- Returns: Numeric sum
-- Usage: Sum(numeric_collection)
 
 ## Boolean evaluations
 Compare the results of multiple expressions.
@@ -241,12 +249,6 @@ Check if left expression is less than or equal to right expression
 - Returns: Boolean evaluation
 - Usage: LessEqual(count1, count2)
 
-CharacterHasLabel()
-Check if a specific character has a given label
-- Params: Character name (string), Label (INNOCENT or CRIMINAL)
-- Returns: Boolean evaluation
-- Usage: CharacterHasLabel("Vince", Label.INNOCENT)
-
 AreConnected()
 Check if all positions in a set are connected (adjacent to each other)
 - Params: Set of positions
@@ -255,13 +257,13 @@ Check if all positions in a set are connected (adjacent to each other)
 
 IsOdd()
 Check if a number is odd
-- Params: Number
+- Params: Number expression
 - Returns: Boolean evaluation
 - Usage: IsOdd(count)
 
 IsEven()
 Check if a number is even
-- Params: Number
+- Params: Number expression
 - Returns: Boolean evaluation
 - Usage: IsEven(count)
 
@@ -310,12 +312,4 @@ right_of()
 Get positions right of a character
 - Compiles to: RightOf(Character("Frank"))
 - Usage: right_of("Frank")
-
-<instructions>
-You are a constraint parser. You are given a hint and you need to parse it into a constraint. 
-
-Example:
-Hint: "Vince and Isaac have an equal number of criminal neighbors"
-Constraint: Equal(count_criminals(neighbors_of("Vince")), count_criminals(neighbors_of("Isaac")))
-
 </reference>

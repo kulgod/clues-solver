@@ -117,8 +117,8 @@
         "hint_id": "C5",
         "hint": "4 of the 6 innocents neighboring Gabe are on the edges",
         "expressions": [
-            "Equal(Count(Filter(neighbors_of(\"Gabe\"), HasLabel(Label.INNOCENT))), Literal(6))",
-            "Equal(Count(Filter(Union(neighbors_of(\"Gabe\"), EdgePositions()), HasLabel(Label.INNOCENT))), Literal(4))"
+            "Equal(count_innocents(neighbors_of(\"Gabe\"))), Literal(6))",
+            "Equal(count_innocents(Intersection(neighbors_of(\"Gabe\"), EdgePositions()))), Literal(4))"
         ]
       },
       {
