@@ -1,4 +1,6 @@
-from re import L
+import itertools
+from collections import defaultdict
+from platform import java_ver
 from typing import List, Dict, Tuple, Optional, Set
 
 from src.python.manual_solver.game_state import GameState, Suspect, Label
@@ -27,39 +29,42 @@ class CluesSolver:
     @staticmethod
     def find_certain_moves(game_state: GameState, constraints: List[Constraint]) -> List[CluesMove]:
         """Find moves based on elimination (only one possibility remains)."""
-        elimination_moves = []
-
         # 1. Compute all possible board states. Keep a map of all labels of each suspect that are found in valid board states.
-        label_possibilities = {}  # map suspect name -> Set[Label]
-        def _evaluate_board(game_solution: GameState) -> None:
-            remaining_unknowns = game_solution.get_unknown_suspects()
-            if len(remaining_unknowns) == 0:
-                is_valid_solution = all([c.evaluate(game_solution) for c in constraints])
-                if is_valid_solution:
-                    for s in game_solution.get_known_suspects():
-                        label_possibilities[s].add(s.label)
-            else:
-                game_solution.set_label(remaining_unknowns[0], Label.INNOCENT)
-                _evaluate_board(game_solution)
-                # Backtrack from completed solution
-                for s in remaining_unknowns:
-                    game_solution.set_label(s, None) 
-                game_solution.set_label(remaining_unknowns[0], Label.CRIMINAL)
-                for s in remaining_unknowns:
-                    game_solution.set_label(s, None)
+        initial_unknowns = game_state.get_unknown_suspects()
+        candidate_game = game_state.copy()
+        valid_labels = defaultdict(set)
 
-        # 2. Extract certain moves from label possibilities
-        label_possibilities = _evaluate_board(game_state.copy(), label_possibilities)
-        possibilities_for_unknowns = {
-            s: label_possibilities[s]
-            for s in game_state.get_unknown_suspects()
-        }
-        elimination_moves = [
-            CluesMove(
-                game_state.get_suspect(s), 
-                list(labels)[0]
-            )
-            for s, labels in possibilities_for_unknowns.items()
+        final_state_masks = list(itertools.product([0, 1], repeat=len(initial_unknowns)))
+        def _apply_mask(game: GameState, mask: Tuple[int]):
+            labels = {}
+            for suspect, binary_label in zip(initial_unknowns, mask):
+                label = Label.CRIMINAL if binary_label else Label.INNOCENT
+                game.set_label(suspect, label, is_visible=True)
+                labels[suspect.name] = label
+            return labels
+
+        for mask in final_state_masks:
+            candidate_labels = _apply_mask(candidate_game, mask)
+            is_valid_state = all([c.evaluate(candidate_game) for c in constraints])
+            if is_valid_state:
+                for name, label in candidate_labels.items():
+                    valid_labels[name].add(label)
+
+            # reset game
+            for suspect in initial_unknowns:
+                candidate_game.set_label(suspect, None, is_visible=False)
+
+        # Filter to unknowns
+        valid_labels_for_unknowns = {s.name: valid_labels[s.name] for s in initial_unknowns}
+        # Filter to unknowns with only 1 valid label
+        certain_moves = {
+            name: list(labels)[0] 
+            for name, labels in valid_labels_for_unknowns.items()
             if len(labels) == 1
+        }
+
+        # Convert to CluesMove output
+        return [
+            CluesMove(game_state.get_suspect(name), label) 
+            for name, label in certain_moves.items()
         ]
-        return elimination_moves

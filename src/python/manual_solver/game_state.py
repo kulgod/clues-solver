@@ -39,6 +39,9 @@ class Suspect:
 
     def set_label(self, label: Optional[Label]):
         self._label = label
+
+    def set_visible(self, is_visible: bool):
+        self.is_visible = is_visible
         
 @dataclass
 class GameState:
@@ -104,18 +107,19 @@ class GameState:
     def get_known_suspects(self) -> List[Suspect]:
         return [s for s in self.cell_map.values() if s.is_visible]
 
-    def set_label(self, suspect: Suspect, label: Label):
+    def set_label(self, suspect: Suspect, label: Optional[Label], is_visible: bool = True):
         matching_suspects = list(filter(lambda x: x[1].name == suspect.name, self.cell_map.items()))
         if len(matching_suspects) == 0:
             raise ValueError(f"Suspect {suspect.name} not found in game state")
         if len(matching_suspects) > 1:
             raise ValueError(f"Multiple suspects with name {suspect.name} found in game state")
 
-        cell_name, found_suspect = matching_suspects[0]
-        self._set_label(cell_name, label)
+        cell_name, _ = matching_suspects[0]
+        self._set_label(cell_name, label, is_visible)
 
-    def _set_label(self, cell_name: str, label: Label):
+    def _set_label(self, cell_name: str, label: Optional[Label], is_visible: bool):
         self.cell_map[cell_name].set_label(label)
+        self.cell_map[cell_name].set_visible(is_visible)
     
     def _parse_coord(self, coord: str) -> Tuple[int, int]:
         """Parse coordinate string (e.g., 'A1') into row, col indices."""
