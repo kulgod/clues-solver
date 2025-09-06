@@ -37,7 +37,7 @@ class Suspect:
         if self.is_visible:
             return self._label
 
-    def set_label(self, label: Label):
+    def set_label(self, label: Optional[Label]):
         self._label = label
         
 @dataclass
@@ -91,8 +91,12 @@ class GameState:
         row = int(cell_name[1:])
         return row, col
 
-    def get_suspect(self, row: int, col: int) -> Suspect:
-        return self.cell_map[self._to_cell_name(row, col)]
+    def get_suspect(self, name: str) -> Suspect:
+        matches = [s for s in self.cell_map.values() if s.name == name]
+        if matches:
+            return matches[0]
+        else:
+            raise ValueError(f"Could not find suspect '{name}'")
 
     def get_unknown_suspects(self) -> List[Suspect]:
         return [s for s in self.cell_map.values() if not s.is_visible]

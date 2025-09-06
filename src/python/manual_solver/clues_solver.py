@@ -1,3 +1,4 @@
+from re import L
 from typing import List, Dict, Tuple, Optional, Set
 
 from src.python.manual_solver.game_state import GameState, Suspect, Label
@@ -27,65 +28,38 @@ class CluesSolver:
     def find_certain_moves(game_state: GameState, constraints: List[Constraint]) -> List[CluesMove]:
         """Find moves based on elimination (only one possibility remains)."""
         elimination_moves = []
-        
-        # Check each unknown character
-        for suspect in game_state.get_unknown_suspects():
-            criminal_possible = CluesSolver._test_label_possibility(game_state, suspect, Label.CRIMINAL, constraints)
-            innocent_possible = CluesSolver._test_label_possibility(game_state, suspect, Label.INNOCENT)
-            
-            if criminal_possible and not innocent_possible:
-                elimination_moves.append(CluesMove(
-                    suspect=suspect,
-                    label=Label.CRIMINAL,
-                ))
-            elif innocent_possible and not criminal_possible:
-                elimination_moves.append(CluesMove(
-                    suspect=suspect,
-                    label=Label.INNOCENT,
-                ))
-        
-        return elimination_moves
-    
-    @staticmethod
-    def _test_label_possibility(game_state: GameState, suspect: Suspect, label: Label, constraints: List[Constraint]) -> bool:
-        """Test if assigning a label to a character is possible without contradiction."""
-        test_state = game_state.copy()
-        test_state.set_label(suspect, label)
-        try:
-            for constraint in constraints:
-                if not constraint.evaluate(test_state):
-                    return False
-            return True
-        except Exception:
-            return False
 
-    @staticmethod
-    def solve_step_by_step(game_state: GameState, parser: ConstraintParser) -> List[CluesMove]:
-        """Solve the game step by step, finding the next certain move."""
-        moves = []
-        current_state = game_state.copy()
-        
-        while True:
-            # Find certain moves in current state
-            constraints = CluesSolver.parse_constraints(current_state, parser)
-            if len(constraints) == 0:
-                break
+        # 1. Compute all possible board states. Keep a map of all labels of each suspect that are found in valid board states.
+        label_possibilities = {}  # map suspect name -> Set[Label]
+        def _evaluate_board(game_solution: GameState) -> None:
+            remaining_unknowns = game_solution.get_unknown_suspects()
+            if len(remaining_unknowns) == 0:
+                is_valid_solution = all([c.evaluate(game_solution) for c in constraints])
+                if is_valid_solution:
+                    for s in game_solution.get_known_suspects():
+                        label_possibilities[s].add(s.label)
+            else:
+                game_solution.set_label(remaining_unknowns[0], Label.INNOCENT)
+                _evaluate_board(game_solution)
+                # Backtrack from completed solution
+                for s in remaining_unknowns:
+                    game_solution.set_label(s, None) 
+                game_solution.set_label(remaining_unknowns[0], Label.CRIMINAL)
+                for s in remaining_unknowns:
+                    game_solution.set_label(s, None)
 
-            certain_moves = CluesSolver.find_certain_moves(current_state, constraints)
-            if not certain_moves:
-                break
-            
-            # Take the first certain move
-            next_move = certain_moves[0]
-            moves.append(next_move)
-            
-            # Apply the move to our working state
-            current_state.set_label(
-                next_move.suspect,
-                next_move.label,
+        # 2. Extract certain moves from label possibilities
+        label_possibilities = _evaluate_board(game_state.copy(), label_possibilities)
+        possibilities_for_unknowns = {
+            s: label_possibilities[s]
+            for s in game_state.get_unknown_suspects()
+        }
+        elimination_moves = [
+            CluesMove(
+                game_state.get_suspect(s), 
+                list(labels)[0]
             )
-            
-            # Update our game state for next iteration
-            current_state = current_state.copy()
-        
-        return moves
+            for s, labels in possibilities_for_unknowns.items()
+            if len(labels) == 1
+        ]
+        return elimination_moves

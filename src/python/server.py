@@ -66,7 +66,7 @@ def analyze_game():
         try:
             game_state = GameState.from_api_data(characters)
             parser = ConstraintParser(api_key)
-            
+            moves = CluesSolver.solve_step_by_step(game_state, parser)
             # Render grid for debugging (console output only)
             grid_text = game_state.render_as_text()
             

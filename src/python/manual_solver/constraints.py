@@ -84,6 +84,25 @@ class Character(Expression):
         return f"Character({self.name})"
 
 @dataclass(frozen=True)
+class CharacterHasLabel(Expression):
+    """Check if a specific character has a given label."""
+    character_name: str
+    label: Label
+    
+    def evaluate(self, game_state: GameState) -> bool:
+        """Return True if the character has the specified label."""
+        for cell_name, suspect in game_state.cell_map.items():
+            if suspect.name.lower() == self.character_name.lower():
+                return suspect.is_visible and suspect.label == self.label
+        return False  # Character not found or not visible
+    
+    def get_dependencies(self) -> Set[str]:
+        return {self.character_name}
+    
+    def __str__(self) -> str:
+        return f"CharacterHasLabel({self.character_name}, {self.label.value})"
+
+@dataclass(frozen=True)
 class AllCharacters(Expression):
     """All characters in the game."""
     
@@ -251,6 +270,49 @@ class RightOf(Expression):
     
     def __str__(self) -> str:
         return f"RightOf({self.target})"
+
+@dataclass(frozen=True)
+class Column(Expression):
+    """Get all positions in a specific column."""
+    column_letter: str  # Column letter (A-D)
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        if self.column_letter not in ['A', 'B', 'C', 'D']:
+            raise ValueError(f"Column letter must be A, B, C, or D, got {self.column_letter}")
+        
+        # Convert letter to 0-based index
+        column_number = ord(self.column_letter) - ord('A')
+        
+        column_positions = set()
+        for row in range(1, 6):  # Rows 1-5
+            column_positions.add(Position(row, column_number))
+        return column_positions
+    
+    def get_dependencies(self) -> Set[str]:
+        return set()  # Doesn't depend on specific characters
+    
+    def __str__(self) -> str:
+        return f"Column({self.column_letter})"
+
+@dataclass(frozen=True)
+class Row(Expression):
+    """Get all positions in a specific row."""
+    row_number: int  # Row number (1-indexed)
+    
+    def evaluate(self, game_state: GameState) -> Set[Position]:
+        if not (1 <= self.row_number <= 5):
+            raise ValueError(f"Row number must be between 1 and 5, got {self.row_number}")
+        
+        row_positions = set()
+        for col in range(4):  # Columns 0-3
+            row_positions.add(Position(self.row_number, col))
+        return row_positions
+    
+    def get_dependencies(self) -> Set[str]:
+        return set()  # Doesn't depend on specific characters
+    
+    def __str__(self) -> str:
+        return f"Row({self.row_number})"
 
 @dataclass(frozen=True)
 class EdgePositions(Expression):

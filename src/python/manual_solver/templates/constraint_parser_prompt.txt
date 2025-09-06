@@ -62,6 +62,18 @@ Get all positions on the edge of the grid
 - Returns: Set of edge positions
 - Usage: EdgePositions()
 
+Column()
+Get all positions in a specific column
+- Params: Column letter (string, A-D)
+- Returns: Set of positions in that column
+- Usage: Column("A"), Column("C")
+
+Row()
+Get all positions in a specific row
+- Params: Row number (integer, 1-5)
+- Returns: Set of positions in that row
+- Usage: Row(1), Row(3)
+
 Above()
 Get all positions above a specific character (same column, lower row numbers)
 - Params: Character/Position expression
@@ -209,6 +221,12 @@ Check if left expression is less than or equal to right expression
 - Params: Two expressions
 - Returns: Boolean evaluation
 - Usage: LessEqual(count1, count2)
+
+CharacterHasLabel()
+Check if a specific character has a given label
+- Params: Character name (string), Label (INNOCENT or CRIMINAL)
+- Returns: Boolean evaluation
+- Usage: CharacterHasLabel("Vince", Label.INNOCENT)
 
 AreConnected()
 Check if all positions in a set are connected (adjacent to each other)
