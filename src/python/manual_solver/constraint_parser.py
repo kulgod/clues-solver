@@ -1,5 +1,6 @@
 
 import json 
+import os
 from typing import List
 
 import anthropic
@@ -14,7 +15,10 @@ PROMPT_FILENAME = "hints.txt"
 class ConstraintParser:
     def __init__(self, api_key: str):
         self.model = anthropic.Anthropic(api_key=api_key)
-        self.template_env = Environment(loader=FileSystemLoader('prompts'))
+        # Get the directory where this file is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        prompts_dir = os.path.join(current_dir, 'prompts')
+        self.template_env = Environment(loader=FileSystemLoader(prompts_dir))
 
     def _load_template(self, filename: str, **kwargs) -> str:
         template = self.template_env.get_template(filename)
@@ -25,6 +29,7 @@ class ConstraintParser:
         prompt = self._load_template(PROMPT_FILENAME, hints=hints)
 
         response = self.model.messages.create(
+            max_tokens=10000,
             model="claude-sonnet-4-20250514",
             system=[
                 {"type": "text", "text": system_prompt}
@@ -35,6 +40,7 @@ class ConstraintParser:
         )
 
         res = json.loads(response.content[0].text)
+        print(f"[CONSTRAINT-PARSER] Anthropic response: {res}")
         if not isinstance(res, list):
             raise ValueError("Response is not a list")
         
@@ -43,4 +49,6 @@ class ConstraintParser:
             for item in res
             for c in item["expressions"]
         ]
+        for c in constraints:
+            print(f"[CONSTRAINT-PARSER] Parsed hint: {c.description}")
         return constraints

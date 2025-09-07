@@ -102,8 +102,16 @@ solveButton.addEventListener('click', async function() {
       });
     });
     
-    if (response.success) {
-      showRecommendation(response);
+    // Handle array of recommendations from content script
+    if (Array.isArray(response)) {
+      if (response.length > 0 && response[0].success) {
+        showRecommendations(response);
+      } else {
+        throw new Error('No valid recommendations received');
+      }
+    } else if (response.success) {
+      // Backward compatibility for single recommendation
+      showRecommendations([response]);
     } else {
       throw new Error(response.error || 'Unknown error occurred');
     }
@@ -123,26 +131,39 @@ function showStatus(message, type) {
   statusDiv.className = `status ${type}`;
 }
 
-function showRecommendation(response) {
-  const labelClass = response.label === 'criminal' ? 'label-criminal' : 'label-innocent';
+function showRecommendations(recommendations) {
+  if (!recommendations || recommendations.length === 0) {
+    showStatus('No recommendations available', 'error');
+    return;
+  }
+
+  // Generate HTML for all recommendations
+  const recommendationsHtml = recommendations.map((response, index) => {
+    const labelClass = response.label === 'criminal' ? 'label-criminal' : 'label-innocent';
+    const title = recommendations.length > 1 ? `Recommendation #${index + 1}` : 'Recommendation';
+    
+    return `
+      <div class="recommendation">
+        <h3>${title}</h3>
+        <div class="move-info">
+          <span class="character-name">${response.character}</span>
+          <span class="label-badge ${labelClass}">${response.label.toUpperCase()}</span>
+        </div>
+        ${response.reasoning ? `
+        <div class="reasoning">
+          <strong>Reasoning:</strong><br>
+          ${response.reasoning}
+        </div>
+        ` : ''}
+        ${response.confidence ? `
+        <div class="confidence">
+          Confidence: ${response.confidence}
+        </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
   
-  const html = `
-    <div class="recommendation">
-      <h3>AI Recommendation</h3>
-      <div class="move-info">
-        <span class="character-name">${response.character}</span>
-        <span class="label-badge ${labelClass}">${response.label.toUpperCase()}</span>
-      </div>
-      <div class="reasoning">
-        <strong>Reasoning:</strong><br>
-        ${response.reasoning}
-      </div>
-      <div class="confidence">
-        Confidence: ${response.confidence || 'high'}
-      </div>
-    </div>
-  `;
-  
-  statusDiv.innerHTML = html;
+  statusDiv.innerHTML = recommendationsHtml;
   statusDiv.className = 'status';
 }

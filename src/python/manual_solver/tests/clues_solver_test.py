@@ -8,18 +8,19 @@ from src.python.manual_solver.clues_solver import CluesSolver, CluesMove
 
 class TestCluesSolver(unittest.TestCase):
     """Test cases for the puzzle solver."""
-    
-    def test_parse_constraints(self):
-        # Get constraints from src/example_games/clues_solver__olivia_constraints.json
-        with open("src/example_games/clues_solver__olivia_constraints.json") as f:
+
+    def set_up_game(self, game_name: str):
+        with open(f"src/example_games/{game_name}_constraints.json") as f:
             constraints_raw = f.read()
         all_constraints = json.loads(constraints_raw)["characters"]
 
-        # Load initial game state from src/example_games/clues_solver__olivia_initial.json
-        with open("src/example_games/clues_solver__olivia_initial.json") as f:
+        with open(f"src/example_games/{game_name}_initial.json") as f:
             initial_game_raw = f.read()
         initial_game = GameState.from_api_data(json.loads(initial_game_raw)["characters"])
-
+        return initial_game, all_constraints
+    
+    def test_parse_constraints(self):
+        initial_game, all_constraints = self.set_up_game("clues_solver__olivia")
         # Find certain moves
         initially_visible_cells = [id for id, c in initial_game.cell_map.items() if c.is_visible]
         self.assertEqual(len(initially_visible_cells), 1)

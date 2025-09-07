@@ -107,6 +107,9 @@ class GameState:
     def get_known_suspects(self) -> List[Suspect]:
         return [s for s in self.cell_map.values() if s.is_visible]
 
+    def get_available_hints(self) -> List[str]:
+        return [s.hint for s in self.get_known_suspects() if s.hint]
+
     def set_label(self, suspect: Suspect, label: Optional[Label], is_visible: bool = True):
         matching_suspects = list(filter(lambda x: x[1].name == suspect.name, self.cell_map.items()))
         if len(matching_suspects) == 0:

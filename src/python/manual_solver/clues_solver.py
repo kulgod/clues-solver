@@ -18,13 +18,6 @@ class CluesMove:
 
 class CluesSolver:
     """Specialized solver for the Clues game that finds 100% certain moves."""
-
-    @staticmethod
-    def parse_constraints(game_state: GameState, parser: ConstraintParser) -> List[Constraint]:
-        """Parse the constraints from the game state."""
-        hints = [suspect.hint for suspect in game_state.get_known_suspects()]
-        constraints = parser.parse_all(hints)
-        return constraints
     
     @staticmethod
     def find_certain_moves(game_state: GameState, constraints: List[Constraint]) -> List[CluesMove]:

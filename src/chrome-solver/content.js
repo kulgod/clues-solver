@@ -49,14 +49,13 @@ async function handleSolveMove(apiKey, solverMode = 'gpt-4o') {
             // Step 3: Return the recommendation
             console.log('Server recommendation:', analysis);
 
-            return {
+            // Python returns a list of recommendations
+            return analysis.map(a => ({
                 success: true,
-                character: analysis.character,
-                label: analysis.label,
-                reasoning: analysis.reasoning,
-                confidence: analysis.confidence,
+                character: a.character,
+                label: a.label,
                 source: 'py-analyzer'
-            };
+            }));
         } else {
             // AI model mode - use screenshot analysis
             console.log('Taking screenshot...');
@@ -73,14 +72,15 @@ async function handleSolveMove(apiKey, solverMode = 'gpt-4o') {
 
             console.log(`${solverMode} recommendation:`, analysis);
 
-            return {
+            // AI mode only returns a single recommendation
+            return [{
                 success: true,
                 character: analysis.character,
                 label: analysis.label,
                 reasoning: analysis.reasoning,
                 confidence: analysis.confidence || 'medium',
                 source: solverMode
-            };
+            }];
         }
 
     } catch (error) {
@@ -191,7 +191,7 @@ async function analyzeWithPythonServer(gameState) {
         throw new Error(data.error || 'Server analysis failed');
     }
 
-    return data.recommendation;
+    return data.recommendations;
 }
 
 async function takeScreenshot() {
@@ -373,65 +373,4 @@ async function analyzeWithOpenAIViaBackground(screenshot, apiKey) {
             }
         });
     });
-}
-
-async function executeMove(characterName, label) {
-    // Find the character element by text content
-    const characterElements = document.querySelectorAll('[class*="character"], [class*="suspect"], [class*="person"]');
-
-    let targetElement = null;
-    for (const element of characterElements) {
-        if (element.textContent.includes(characterName)) {
-            targetElement = element;
-            break;
-        }
-    }
-
-    if (!targetElement) {
-        // Fallback: try any element containing the character name
-        const allElements = document.querySelectorAll('*');
-        for (const element of allElements) {
-            if (element.textContent.trim() === characterName ||
-                element.textContent.includes(characterName)) {
-                targetElement = element;
-                break;
-            }
-        }
-    }
-
-    if (!targetElement) {
-        throw new Error(`Could not find character "${characterName}" on the page`);
-    }
-
-    // Click the character
-    targetElement.click();
-
-    // Wait a moment for the options to appear
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Look for innocent/criminal buttons
-    const labelText = label.toLowerCase();
-    const buttons = document.querySelectorAll('button, [role="button"], .btn, [class*="button"]');
-
-    let labelButton = null;
-    for (const button of buttons) {
-        const buttonText = button.textContent.toLowerCase();
-        if (buttonText.includes(labelText) ||
-            buttonText.includes(labelText === 'criminal' ? 'guilt' : 'innoc')) {
-            labelButton = button;
-            break;
-        }
-    }
-
-    if (!labelButton) {
-        throw new Error(`Could not find "${label}" button after clicking character`);
-    }
-
-    // Click the label button
-    labelButton.click();
-
-    // Wait a moment to see if the move was accepted
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    console.log(`Move executed: ${characterName} → ${label}`);
 }
